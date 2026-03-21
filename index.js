@@ -188,12 +188,18 @@ async function deleteSelected() {
 }
 
 async function delChar(avatar) {
+    const headers = getRequestHeaders();
+    console.log('[BD] headers:', JSON.stringify(headers));
     const res = await fetch('/api/characters/delete', {
         method: 'POST',
-        headers: getRequestHeaders(),
+        headers: headers,
         body: JSON.stringify({ avatar, delete_chats: false }),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text().catch(() => '')}`);
+    if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        alert(`删除失败！\nHTTP ${res.status}\n${text}`);
+        throw new Error(`HTTP ${res.status}: ${text}`);
+    }
 }
 
 async function delWorldbook(avatar) {
