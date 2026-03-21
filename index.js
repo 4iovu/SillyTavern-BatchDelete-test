@@ -5,6 +5,18 @@
 
 const MODULE_NAME = 'batch_delete';
 
+// ── CSRF Token ───────────────────────────────────────────────────
+function getRequestHeaders() {
+    // SillyTavern 把 CSRF token 存在 meta 标签或全局变量里
+    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+        ?? window.csrf_token
+        ?? '';
+    return {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': token,
+    };
+}
+
 // ── 状态 ────────────────────────────────────────────────────────
 let selectMode = false;
 let selectedAvatars = new Set();
@@ -33,10 +45,8 @@ function waitForElement(selector, timeout = 10000) {
 
 // ── 注入工具栏 ──────────────────────────────────────────────────
 async function injectToolbar() {
-    // 防止重复注入
     if (document.getElementById('bd_toolbar')) return;
 
-    // rm_characters_block 内的 rm_tag_controls
     let tagControls;
     try {
         tagControls = await waitForElement('#rm_characters_block .rm_tag_controls');
@@ -79,7 +89,6 @@ function toggleSelectMode() {
     selectMode = !selectMode;
 
     const toggleBtn = document.getElementById('bd_toggle');
-    const extraEls = document.querySelectorAll('.bd_hidden_ctrl');
 
     if (selectMode) {
         toggleBtn.classList.add('bd_active');
@@ -108,7 +117,6 @@ function showExtraControls(show) {
 function attachOverlays() {
     document.querySelectorAll('.character_select.entity_block').forEach(attachOne);
 
-    // 监听动态渲染（翻页/搜索）
     const block = document.getElementById('rm_print_characters_block');
     if (!block) return;
 
@@ -135,7 +143,6 @@ function detachOverlays() {
 function attachOne(card) {
     if (card.querySelector('.bd_overlay')) return;
 
-    // 角色 avatar 文件名存在 id 属性上（如 "char_name.png"）
     const avatar = card.getAttribute('id');
     if (!avatar) return;
 
@@ -152,7 +159,6 @@ function attachOne(card) {
         toggleCard(card, overlay, avatar);
     });
 
-    // 点击卡片本体也触发（在捕获阶段拦截，阻止打开角色）
     card._bdClickHandler = (e) => {
         if (!selectMode) return;
         if (e.target.closest('.bd_overlay')) return;
@@ -214,7 +220,7 @@ function updateCount() {
     if (el) el.textContent = selectedAvatars.size;
 }
 
-// ── 获取角色数据（通过 SillyTavern getContext） ─────────────────
+// ── 获取角色数据 ─────────────────────────────────────────────────
 function getCharByAvatar(avatar) {
     try {
         const ctx = SillyTavern.getContext();
@@ -224,7 +230,7 @@ function getCharByAvatar(avatar) {
     }
 }
 
-// ── 获取选中角色的显示名称列表 ──────────────────────────────────
+// ── 获取选中角色名称列表 ─────────────────────────────────────────
 function getSelectedNames() {
     return [...selectedAvatars].map(av => {
         const card = document.querySelector(`.character_select.entity_block[id="${CSS.escape(av)}"]`);
@@ -258,7 +264,6 @@ async function deleteSelected() {
             if (withWB) await tryDeleteWorldbook(avatar);
             await deleteCharacter(avatar);
 
-            // 乐观删除 DOM
             document.querySelector(`.character_select.entity_block[id="${CSS.escape(avatar)}"]`)?.remove();
             selectedAvatars.delete(avatar);
             updateCount();
@@ -271,22 +276,24 @@ async function deleteSelected() {
 
     if (delBtn) { delBtn.disabled = false; delBtn.innerHTML = '<i class="fa-solid fa-trash"></i><span>删除</span>'; }
 
-    // 刷新角色列表
     refreshCharacterList();
 
     alert(`完成：成功 ${ok_n}${fail_n ? `，失败 ${fail_n}（见控制台）` : ''}`);
 
-    if (ok_n > 0) toggleSelectMode(); // 自动退出选择模式
+    if (ok_n > 0) toggleSelectMode();
 }
 
 // ── 删除单个角色 API ─────────────────────────────────────────────
 async function deleteCharacter(avatar) {
     const res = await fetch('/api/characters/delete', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getRequestHeaders(),
         body: JSON.stringify({ avatar, delete_chats: false }),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+        const text = await res.text().catch(() => res.statusText);
+        throw new Error(`HTTP ${res.status}: ${text}`);
+    }
 }
 
 // ── 删除绑定世界书 ───────────────────────────────────────────────
@@ -297,32 +304,26 @@ async function tryDeleteWorldbook(avatar) {
 
     const res = await fetch('/api/worldinfo/delete', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getRequestHeaders(),
         body: JSON.stringify({ name: worldName }),
     });
     if (!res.ok) console.warn(`[BatchDelete] 世界书删除失败 ${worldName}: HTTP ${res.status}`);
     else console.log(`[BatchDelete] 已删除世界书: ${worldName}`);
 }
 
-// ── 触发酒馆内部角色列表刷新 ────────────────────────────────────
+// ── 触发酒馆角色列表刷新 ────────────────────────────────────────
 function refreshCharacterList() {
     try {
         const ctx = SillyTavern.getContext();
-        // 从 context 同步删除角色数据，让 printCharacters 拿到最新列表
-        if (ctx.characters) {
-            // 过滤掉已删除的角色（selectedAvatars 此时已清空，从删除前的 list 拿）
-            // printCharacters 会自动重排，只需触发
-        }
         if (typeof ctx.printCharacters === 'function') {
             ctx.printCharacters(true);
+            return;
         }
-    } catch (e) {
-        // 兜底：触发页面级刷新事件
-        try { jQuery(document).trigger('characterListUpdated'); } catch {}
-    }
+    } catch (e) {}
+    try { jQuery(document).trigger('characterListUpdated'); } catch {}
 }
 
-// ── 入口：等待页面稳定后注入 ────────────────────────────────────
+// ── 入口 ────────────────────────────────────────────────────────
 jQuery(async () => {
     try {
         await injectToolbar();
