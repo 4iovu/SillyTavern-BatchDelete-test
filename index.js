@@ -1,69 +1,44 @@
 /**
- * 批量删除角色卡
+ * 批量删除角色卡扩展
  * 在角色列表 tag filter 栏最右侧注入批量选择/删除工具栏
  */
 
-const MODULE_NAME = 'batch_delete';
-
-// ── CSRF Token ───────────────────────────────────────────────────
-function getRequestHeaders() {
-    // 直接使用 ST 内置的 getRequestHeaders 函数
-    if (typeof window.getRequestHeaders === 'function') {
-        return window.getRequestHeaders();
-    }
-    // 兜底：从 script.js 导入
-    return {
-        'Content-Type': 'application/json',
-        'X-Csrf-Token': document.getElementById('csrf-token')?.value ?? '',
-    };
-}
+// ── 从 ST 核心模块导入 getRequestHeaders ────────────────────────
+import { getRequestHeaders } from '../../../../script.js';
 
 // ── 状态 ────────────────────────────────────────────────────────
 let selectMode = false;
 let selectedAvatars = new Set();
 
-// ── 等待目标元素出现 ─────────────────────────────────────────────
 function waitForElement(selector, timeout = 10000) {
     return new Promise((resolve, reject) => {
         const el = document.querySelector(selector);
         if (el) return resolve(el);
-
         const obs = new MutationObserver(() => {
             const found = document.querySelector(selector);
-            if (found) {
-                obs.disconnect();
-                resolve(found);
-            }
+            if (found) { obs.disconnect(); resolve(found); }
         });
         obs.observe(document.body, { childList: true, subtree: true });
-
-        setTimeout(() => {
-            obs.disconnect();
-            reject(new Error(`Timeout waiting for ${selector}`));
-        }, timeout);
+        setTimeout(() => { obs.disconnect(); reject(new Error(`Timeout: ${selector}`)); }, timeout);
     });
 }
 
-// ── 注入工具栏 ──────────────────────────────────────────────────
 async function injectToolbar() {
     if (document.getElementById('bd_toolbar')) return;
-
     let tagControls;
     try {
         tagControls = await waitForElement('#rm_characters_block .rm_tag_controls');
     } catch (e) {
-        console.error('[BatchDelete] 找不到 rm_tag_controls，放弃注入', e);
+        console.error('[BatchDelete] 找不到 rm_tag_controls', e);
         return;
     }
-
     const toolbar = document.createElement('div');
     toolbar.id = 'bd_toolbar';
     toolbar.innerHTML = `
         <button id="bd_toggle" class="menu_button bd_btn" title="批量选择角色卡">
-            <i class="fa-solid fa-check-square"></i>
-            <span>批量</span>
+            <i class="fa-solid fa-check-square"></i><span>批量</span>
         </button>
-        <button id="bd_all" class="menu_button bd_btn bd_hidden" title="全选 / 取消全选">
+        <button id="bd_all" class="menu_button bd_btn bd_hidden" title="全选/取消全选">
             <i class="fa-solid fa-check-double"></i>
         </button>
         <span id="bd_count" class="bd_count bd_hidden">0</span>
@@ -71,140 +46,96 @@ async function injectToolbar() {
             <input type="checkbox" id="bd_wb_cb"> 含世界书
         </label>
         <button id="bd_delete" class="menu_button bd_btn bd_danger bd_hidden" title="删除已选角色卡">
-            <i class="fa-solid fa-trash"></i>
-            <span>删除</span>
+            <i class="fa-solid fa-trash"></i><span>删除</span>
         </button>
     `;
-
     tagControls.appendChild(toolbar);
-
     document.getElementById('bd_toggle').addEventListener('click', toggleSelectMode);
     document.getElementById('bd_all').addEventListener('click', toggleSelectAll);
     document.getElementById('bd_delete').addEventListener('click', deleteSelected);
-
     console.log('[BatchDelete] 工具栏注入成功 ✓');
 }
 
-// ── 切换选择模式 ─────────────────────────────────────────────────
 function toggleSelectMode() {
     selectMode = !selectMode;
-
-    const toggleBtn = document.getElementById('bd_toggle');
-
+    const btn = document.getElementById('bd_toggle');
     if (selectMode) {
-        toggleBtn.classList.add('bd_active');
-        toggleBtn.innerHTML = '<i class="fa-solid fa-xmark"></i><span>退出</span>';
-        showExtraControls(true);
+        btn.classList.add('bd_active');
+        btn.innerHTML = '<i class="fa-solid fa-xmark"></i><span>退出</span>';
+        showExtra(true);
         attachOverlays();
     } else {
-        toggleBtn.classList.remove('bd_active');
-        toggleBtn.innerHTML = '<i class="fa-solid fa-check-square"></i><span>批量</span>';
-        showExtraControls(false);
+        btn.classList.remove('bd_active');
+        btn.innerHTML = '<i class="fa-solid fa-check-square"></i><span>批量</span>';
+        showExtra(false);
         clearSelection();
         detachOverlays();
     }
 }
 
-function showExtraControls(show) {
+function showExtra(show) {
     ['bd_all', 'bd_count', 'bd_wb_label', 'bd_delete'].forEach(id => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        if (show) el.classList.remove('bd_hidden');
-        else el.classList.add('bd_hidden');
+        document.getElementById(id)?.classList.toggle('bd_hidden', !show);
     });
 }
 
-// ── 为角色卡添加勾选层 ──────────────────────────────────────────
 function attachOverlays() {
     document.querySelectorAll('.character_select.entity_block').forEach(attachOne);
-
     const block = document.getElementById('rm_print_characters_block');
     if (!block) return;
-
-    window._bdObserver = new MutationObserver((mutations) => {
+    window._bdObs = new MutationObserver(muts => {
         if (!selectMode) return;
-        mutations.forEach(m => {
-            m.addedNodes.forEach(node => {
-                if (node.nodeType !== 1) return;
-                if (node.matches?.('.character_select.entity_block')) attachOne(node);
-                node.querySelectorAll?.('.character_select.entity_block').forEach(attachOne);
-            });
-        });
+        muts.forEach(m => m.addedNodes.forEach(n => {
+            if (n.nodeType !== 1) return;
+            if (n.matches?.('.character_select.entity_block')) attachOne(n);
+            n.querySelectorAll?.('.character_select.entity_block').forEach(attachOne);
+        }));
     });
-    window._bdObserver.observe(block, { childList: true, subtree: true });
+    window._bdObs.observe(block, { childList: true, subtree: true });
 }
 
 function detachOverlays() {
     document.querySelectorAll('.bd_overlay').forEach(el => el.remove());
     document.querySelectorAll('.bd_selected').forEach(el => el.classList.remove('bd_selected'));
-    window._bdObserver?.disconnect();
-    window._bdObserver = null;
+    window._bdObs?.disconnect();
+    window._bdObs = null;
 }
 
 function attachOne(card) {
     if (card.querySelector('.bd_overlay')) return;
-
     const avatar = card.getAttribute('id');
     if (!avatar) return;
-
-    const overlay = document.createElement('div');
-    overlay.className = 'bd_overlay';
-    if (selectedAvatars.has(avatar)) {
-        overlay.classList.add('bd_checked');
-        card.classList.add('bd_selected');
-    }
-
-    overlay.addEventListener('click', (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        toggleCard(card, overlay, avatar);
-    });
-
-    card._bdClickHandler = (e) => {
-        if (!selectMode) return;
-        if (e.target.closest('.bd_overlay')) return;
-        e.stopImmediatePropagation();
-        e.preventDefault();
-        toggleCard(card, overlay, avatar);
+    const ov = document.createElement('div');
+    ov.className = 'bd_overlay';
+    if (selectedAvatars.has(avatar)) { ov.classList.add('bd_checked'); card.classList.add('bd_selected'); }
+    ov.addEventListener('click', e => { e.stopPropagation(); e.preventDefault(); toggle(card, ov, avatar); });
+    card._bdH = e => {
+        if (!selectMode || e.target.closest('.bd_overlay')) return;
+        e.stopImmediatePropagation(); e.preventDefault();
+        toggle(card, ov, avatar);
     };
-    card.addEventListener('click', card._bdClickHandler, true);
-
-    card.appendChild(overlay);
+    card.addEventListener('click', card._bdH, true);
+    card.appendChild(ov);
 }
 
-function toggleCard(card, overlay, avatar) {
+function toggle(card, ov, avatar) {
     if (selectedAvatars.has(avatar)) {
-        selectedAvatars.delete(avatar);
-        overlay.classList.remove('bd_checked');
-        card.classList.remove('bd_selected');
+        selectedAvatars.delete(avatar); ov.classList.remove('bd_checked'); card.classList.remove('bd_selected');
     } else {
-        selectedAvatars.add(avatar);
-        overlay.classList.add('bd_checked');
-        card.classList.add('bd_selected');
+        selectedAvatars.add(avatar); ov.classList.add('bd_checked'); card.classList.add('bd_selected');
     }
     updateCount();
 }
 
-// ── 全选 / 取消全选 ─────────────────────────────────────────────
 function toggleSelectAll() {
     const cards = [...document.querySelectorAll('.character_select.entity_block')];
     const avatars = cards.map(c => c.getAttribute('id')).filter(Boolean);
-    const allSelected = avatars.length > 0 && avatars.every(a => selectedAvatars.has(a));
-
+    const all = avatars.length > 0 && avatars.every(a => selectedAvatars.has(a));
     cards.forEach(card => {
-        const av = card.getAttribute('id');
-        if (!av) return;
-        const overlay = card.querySelector('.bd_overlay');
-
-        if (allSelected) {
-            selectedAvatars.delete(av);
-            overlay?.classList.remove('bd_checked');
-            card.classList.remove('bd_selected');
-        } else {
-            selectedAvatars.add(av);
-            overlay?.classList.add('bd_checked');
-            card.classList.add('bd_selected');
-        }
+        const av = card.getAttribute('id'); if (!av) return;
+        const ov = card.querySelector('.bd_overlay');
+        if (all) { selectedAvatars.delete(av); ov?.classList.remove('bd_checked'); card.classList.remove('bd_selected'); }
+        else { selectedAvatars.add(av); ov?.classList.add('bd_checked'); card.classList.add('bd_selected'); }
     });
     updateCount();
 }
@@ -221,114 +152,66 @@ function updateCount() {
     if (el) el.textContent = selectedAvatars.size;
 }
 
-// ── 获取角色数据 ─────────────────────────────────────────────────
-function getCharByAvatar(avatar) {
-    try {
-        const ctx = SillyTavern.getContext();
-        return ctx.characters?.find(c => c.avatar === avatar) ?? null;
-    } catch {
-        return null;
-    }
-}
-
-// ── 获取选中角色名称列表 ─────────────────────────────────────────
-function getSelectedNames() {
-    return [...selectedAvatars].map(av => {
-        const card = document.querySelector(`.character_select.entity_block[id="${CSS.escape(av)}"]`);
-        return card?.querySelector('.ch_name')?.textContent?.trim() || av;
-    });
-}
-
-// ── 删除选中角色 ─────────────────────────────────────────────────
 async function deleteSelected() {
-    if (selectedAvatars.size === 0) {
-        alert('请先勾选要删除的角色卡');
-        return;
-    }
-
+    if (selectedAvatars.size === 0) { alert('请先勾选要删除的角色卡'); return; }
     const withWB = document.getElementById('bd_wb_cb')?.checked ?? false;
-    const names = getSelectedNames();
-    const wbTip = withWB ? '\n⚠️ 同时删除绑定世界书' : '';
-    const preview = names.slice(0, 15).join('\n') + (names.length > 15 ? `\n…等共 ${names.length} 个` : '');
-
-    const ok = confirm(`即将删除 ${selectedAvatars.size} 个角色卡${wbTip}：\n\n${preview}\n\n此操作不可恢复，确认？`);
-    if (!ok) return;
+    const names = [...selectedAvatars].map(av => {
+        const c = document.querySelector(`.character_select.entity_block[id="${CSS.escape(av)}"]`);
+        return c?.querySelector('.ch_name')?.textContent?.trim() || av;
+    });
+    const preview = names.slice(0, 15).join('\n') + (names.length > 15 ? `\n…共 ${names.length} 个` : '');
+    if (!confirm(`即将删除 ${selectedAvatars.size} 个角色卡${withWB ? '\n⚠️ 含绑定世界书' : ''}：\n\n${preview}\n\n不可恢复，确认？`)) return;
 
     const list = [...selectedAvatars];
-    const delBtn = document.getElementById('bd_delete');
-    if (delBtn) { delBtn.disabled = true; delBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
+    const btn = document.getElementById('bd_delete');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
 
-    let ok_n = 0, fail_n = 0;
-
+    let ok = 0, fail = 0;
     for (const avatar of list) {
         try {
-            if (withWB) await tryDeleteWorldbook(avatar);
-            await deleteCharacter(avatar);
-
+            if (withWB) await delWorldbook(avatar);
+            await delChar(avatar);
             document.querySelector(`.character_select.entity_block[id="${CSS.escape(avatar)}"]`)?.remove();
             selectedAvatars.delete(avatar);
             updateCount();
-            ok_n++;
+            ok++;
         } catch (e) {
-            fail_n++;
-            console.error(`[BatchDelete] 删除失败 ${avatar}:`, e);
+            fail++;
+            console.error(`[BatchDelete] 失败 ${avatar}:`, e);
         }
     }
 
-    if (delBtn) { delBtn.disabled = false; delBtn.innerHTML = '<i class="fa-solid fa-trash"></i><span>删除</span>'; }
-
-    refreshCharacterList();
-
-    alert(`完成：成功 ${ok_n}${fail_n ? `，失败 ${fail_n}（见控制台）` : ''}`);
-
-    if (ok_n > 0) toggleSelectMode();
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-trash"></i><span>删除</span>'; }
+    try { SillyTavern.getContext().printCharacters(true); } catch {}
+    alert(`完成：成功 ${ok}${fail ? `，失败 ${fail}（见控制台）` : ''}`);
+    if (ok > 0) toggleSelectMode();
 }
 
-// ── 删除单个角色 API ─────────────────────────────────────────────
-async function deleteCharacter(avatar) {
+async function delChar(avatar) {
     const res = await fetch('/api/characters/delete', {
         method: 'POST',
         headers: getRequestHeaders(),
         body: JSON.stringify({ avatar, delete_chats: false }),
     });
-    if (!res.ok) {
-        const text = await res.text().catch(() => res.statusText);
-        throw new Error(`HTTP ${res.status}: ${text}`);
-    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text().catch(() => '')}`);
 }
 
-// ── 删除绑定世界书 ───────────────────────────────────────────────
-async function tryDeleteWorldbook(avatar) {
-    const char = getCharByAvatar(avatar);
-    const worldName = char?.data?.world || char?.world;
-    if (!worldName) return;
-
-    const res = await fetch('/api/worldinfo/delete', {
-        method: 'POST',
-        headers: getRequestHeaders(),
-        body: JSON.stringify({ name: worldName }),
-    });
-    if (!res.ok) console.warn(`[BatchDelete] 世界书删除失败 ${worldName}: HTTP ${res.status}`);
-    else console.log(`[BatchDelete] 已删除世界书: ${worldName}`);
-}
-
-// ── 触发酒馆角色列表刷新 ────────────────────────────────────────
-function refreshCharacterList() {
+async function delWorldbook(avatar) {
     try {
         const ctx = SillyTavern.getContext();
-        if (typeof ctx.printCharacters === 'function') {
-            ctx.printCharacters(true);
-            return;
-        }
-    } catch (e) {}
-    try { jQuery(document).trigger('characterListUpdated'); } catch {}
+        const char = ctx.characters?.find(c => c.avatar === avatar);
+        const world = char?.data?.world || char?.world;
+        if (!world) return;
+        const res = await fetch('/api/worldinfo/delete', {
+            method: 'POST',
+            headers: getRequestHeaders(),
+            body: JSON.stringify({ name: world }),
+        });
+        if (!res.ok) console.warn(`[BatchDelete] 世界书删除失败 ${world}`);
+    } catch (e) { console.warn('[BatchDelete] 世界书异常', e); }
 }
 
-// ── 入口 ────────────────────────────────────────────────────────
 jQuery(async () => {
-    try {
-        await injectToolbar();
-    } catch (e) {
-        console.error('[BatchDelete] 初始化失败', e);
-    }
+    try { await injectToolbar(); }
+    catch (e) { console.error('[BatchDelete] 初始化失败', e); }
 });
