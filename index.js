@@ -1,186 +1,138 @@
-import { getRequestHeaders } from '../../../../script.js';
+/**
+ * SillyTavern 角色卡批量删除插件脚本
+ * 集成位置：角色面板标签栏右侧
+ */
+(function() {
+    let isSelectMode = false;
+    let selectedAvatars = new Set();
 
-let selectMode = false;
-let selectedAvatars = new Set();
-
-function waitForElement(selector, timeout = 10000) {
-    return new Promise((resolve, reject) => {
-        const el = document.querySelector(selector);
-        if (el) return resolve(el);
-        const obs = new MutationObserver(() => {
-            const found = document.querySelector(selector);
-            if (found) { obs.disconnect(); resolve(found); }
-        });
-        obs.observe(document.body, { childList: true, subtree: true });
-        setTimeout(() => { obs.disconnect(); reject(new Error('Timeout')); }, timeout);
-    });
-}
-
-async function injectToolbar() {
-    if (document.getElementById('bd_toolbar')) return;
-    let tagControls;
-    try { tagControls = await waitForElement('#rm_characters_block .rm_tag_controls'); }
-    catch (e) { console.error('[BD] 找不到容器', e); return; }
-    const toolbar = document.createElement('div');
-    toolbar.id = 'bd_toolbar';
-    toolbar.innerHTML = `
-        <button id="bd_toggle" class="menu_button" title="批量选择"><i class="fa-solid fa-check-square"></i> 批量</button>
-        <button id="bd_all" class="menu_button bd_hidden">全选</button>
-        <span id="bd_count" class="bd_hidden" style="padding:0 4px">0</span>
-        <label id="bd_wb_label" class="bd_hidden" style="font-size:0.85em;cursor:pointer"><input type="checkbox" id="bd_wb_cb"> 含世界书</label>
-        <button id="bd_delete" class="menu_button bd_hidden" style="color:#ff7b7b" title="删除选中"><i class="fa-solid fa-trash"></i> 删除</button>
-    `;
-    tagControls.appendChild(toolbar);
-    document.getElementById('bd_toggle').addEventListener('click', toggleSelectMode);
-    document.getElementById('bd_all').addEventListener('click', toggleSelectAll);
-    document.getElementById('bd_delete').addEventListener('click', deleteSelected);
-    console.log('[BD] 注入成功');
-}
-
-function toggleSelectMode() {
-    selectMode = !selectMode;
-    const btn = document.getElementById('bd_toggle');
-    if (selectMode) {
-        btn.innerHTML = '<i class="fa-solid fa-xmark"></i> 退出';
-        showExtra(true); attachOverlays();
-    } else {
-        btn.innerHTML = '<i class="fa-solid fa-check-square"></i> 批量';
-        showExtra(false); clearSelection(); detachOverlays();
-    }
-}
-
-function showExtra(show) {
-    ['bd_all','bd_count','bd_wb_label','bd_delete'].forEach(id => {
-        document.getElementById(id)?.classList.toggle('bd_hidden', !show);
-    });
-}
-
-function attachOverlays() {
-    document.querySelectorAll('.character_select.entity_block').forEach(attachOne);
-    const block = document.getElementById('rm_print_characters_block');
-    if (!block) return;
-    window._bdObs = new MutationObserver(muts => {
-        if (!selectMode) return;
-        muts.forEach(m => m.addedNodes.forEach(n => {
-            if (n.nodeType !== 1) return;
-            if (n.matches?.('.character_select.entity_block')) attachOne(n);
-            n.querySelectorAll?.('.character_select.entity_block').forEach(attachOne);
-        }));
-    });
-    window._bdObs.observe(block, { childList: true, subtree: true });
-}
-
-function detachOverlays() {
-    document.querySelectorAll('.bd_overlay').forEach(el => el.remove());
-    document.querySelectorAll('.bd_selected').forEach(el => el.classList.remove('bd_selected'));
-    window._bdObs?.disconnect(); window._bdObs = null;
-}
-
-function attachOne(card) {
-    if (card.querySelector('.bd_overlay')) return;
-    const avatar = card.getAttribute('id');
-    if (!avatar) return;
-    const ov = document.createElement('div');
-    ov.className = 'bd_overlay';
-    ov.style.cssText = 'position:absolute;top:6px;left:6px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.6);border:2px solid rgba(255,255,255,0.5);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:20;font-size:13px;color:#fff;font-weight:bold';
-    if (selectedAvatars.has(avatar)) { ov.textContent = '✓'; ov.style.background = 'rgba(70,140,255,0.85)'; card.classList.add('bd_selected'); }
-    ov.addEventListener('click', e => { e.stopPropagation(); e.preventDefault(); toggle(card, ov, avatar); });
-    card._bdH = e => {
-        if (!selectMode || e.target.closest('.bd_overlay')) return;
-        e.stopImmediatePropagation(); e.preventDefault(); toggle(card, ov, avatar);
-    };
-    card.addEventListener('click', card._bdH, true);
-    card.style.position = 'relative';
-    card.appendChild(ov);
-}
-
-function toggle(card, ov, avatar) {
-    if (selectedAvatars.has(avatar)) {
-        selectedAvatars.delete(avatar); ov.textContent = ''; ov.style.background = 'rgba(0,0,0,0.6)'; card.classList.remove('bd_selected');
-    } else {
-        selectedAvatars.add(avatar); ov.textContent = '✓'; ov.style.background = 'rgba(70,140,255,0.85)'; card.classList.add('bd_selected');
-    }
-    document.getElementById('bd_count').textContent = selectedAvatars.size;
-}
-
-function toggleSelectAll() {
-    const cards = [...document.querySelectorAll('.character_select.entity_block')];
-    const avatars = cards.map(c => c.getAttribute('id')).filter(Boolean);
-    const all = avatars.length > 0 && avatars.every(a => selectedAvatars.has(a));
-    cards.forEach(card => {
-        const av = card.getAttribute('id'); if (!av) return;
-        const ov = card.querySelector('.bd_overlay');
-        if (all) { selectedAvatars.delete(av); if(ov){ov.textContent='';ov.style.background='rgba(0,0,0,0.6)';} card.classList.remove('bd_selected'); }
-        else { selectedAvatars.add(av); if(ov){ov.textContent='✓';ov.style.background='rgba(70,140,255,0.85)';} card.classList.add('bd_selected'); }
-    });
-    document.getElementById('bd_count').textContent = selectedAvatars.size;
-}
-
-function clearSelection() {
-    selectedAvatars.clear();
-    document.querySelectorAll('.bd_selected').forEach(el => el.classList.remove('bd_selected'));
-    document.querySelectorAll('.bd_overlay').forEach(el => { el.textContent=''; el.style.background='rgba(0,0,0,0.6)'; });
-    const c = document.getElementById('bd_count'); if(c) c.textContent = '0';
-}
-
-async function deleteSelected() {
-    if (selectedAvatars.size === 0) { alert('请先勾选角色卡'); return; }
-    const withWB = document.getElementById('bd_wb_cb')?.checked ?? false;
-    const names = [...selectedAvatars].map(av => {
-        const c = document.querySelector(`.character_select.entity_block[id="${CSS.escape(av)}"]`);
-        return c?.querySelector('.ch_name')?.textContent?.trim() || av;
-    });
-    const preview = names.slice(0,15).join('\n') + (names.length>15 ? `\n…共${names.length}个`:'');
-    if (!confirm(`删除 ${selectedAvatars.size} 个角色卡${withWB?'\n含绑定世界书':''}：\n\n${preview}\n\n不可恢复，确认？`)) return;
-
-    const list = [...selectedAvatars];
-    const btn = document.getElementById('bd_delete');
-    if (btn) { btn.disabled = true; btn.textContent = '删除中...'; }
-
-    let ok = 0, fail = 0;
-    for (const avatar of list) {
+    // 1. 核心删除函数：调用酒馆原生API
+    async function deleteCharacter(avatar, deleteWorldbook) {
         try {
-            if (withWB) await delWorldbook(avatar);
+            const { getRequestHeaders, characters, printCharacters } = SillyTavern.getContext();
+            
+            // 如果需要删除世界书
+            if (deleteWorldbook) {
+                const char = characters.find(c => c.avatar === avatar);
+                const worldName = char?.data?.world || char?.world;
+                if (worldName) {
+                    await fetch('/api/worldinfo/delete', {
+                        method: 'POST',
+                        headers: getRequestHeaders(),
+                        body: JSON.stringify({ name: worldName }),
+                    });
+                }
+            }
+
+            // 删除角色卡
             const res = await fetch('/api/characters/delete', {
                 method: 'POST',
                 headers: getRequestHeaders(),
-                body: JSON.stringify({ avatar_url: avatar, delete_chats: false }),
+                body: JSON.stringify({ avatar_url: avatar, delete_chats: true }),
             });
-            if (!res.ok) {
-                const txt = await res.text().catch(() => '');
-                throw new Error(`HTTP ${res.status}: ${txt}`);
-            }
-            document.querySelector(`.character_select.entity_block[id="${CSS.escape(avatar)}"]`)?.remove();
-            selectedAvatars.delete(avatar);
-            document.getElementById('bd_count').textContent = selectedAvatars.size;
-            ok++;
-        } catch(e) {
-            fail++;
-            console.error('[BD] 失败', avatar, e);
+
+            return res.ok;
+        } catch (e) {
+            console.error(`删除 ${avatar} 失败:`, e);
+            return false;
         }
     }
 
-    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-trash"></i> 删除'; }
-    try { SillyTavern.getContext().printCharacters(true); } catch {}
-    alert(`完成：成功 ${ok}${fail ? `，失败 ${fail}（见控制台）` : ''}`);
-    if (ok > 0) toggleSelectMode();
-}
+    // 2. 注入UI按钮
+    function injectUI() {
+        const container = document.querySelector('.rm_tag_controls .tags.rm_tag_filter');
+        if (!container || document.getElementById('batch-delete-tool')) return;
 
-async function delWorldbook(avatar) {
-    try {
-        const ctx = SillyTavern.getContext();
-        const char = ctx.characters?.find(c => c.avatar === avatar);
-        const world = char?.data?.world || char?.world;
-        if (!world) return;
-        await fetch('/api/worldinfo/delete', {
-            method: 'POST',
-            headers: getRequestHeaders(),
-            body: JSON.stringify({ name: world }),
+        const toolWrapper = document.createElement('div');
+        toolWrapper.id = 'batch-delete-tool';
+        toolWrapper.style = 'display:inline-flex; gap:5px; margin-left:auto; padding:2px;';
+
+        toolWrapper.innerHTML = `
+            <button id="btn-batch-toggle" class="menu_button" title="开启批量选择">
+                <i class="fa-solid fa-list-check"></i>
+            </button>
+            <div id="batch-actions" style="display:none; gap:5px;">
+                <button id="btn-batch-all" class="menu_button">全选</button>
+                <button id="btn-batch-confirm" class="menu_button" style="color: #ff4d4d;">
+                    <i class="fa-solid fa-trash-can"></i> 删除(<span id="batch-count">0</span>)
+                </button>
+            </div>
+        `;
+        container.parentElement.appendChild(toolWrapper);
+
+        // 事件绑定
+        document.getElementById('btn-batch-toggle').onclick = toggleMode;
+        document.getElementById('btn-batch-all').onclick = selectAll;
+        document.getElementById('btn-batch-confirm').onclick = executeDelete;
+    }
+
+    // 3. 切换选择模式
+    function toggleMode() {
+        isSelectMode = !isSelectMode;
+        const actions = document.getElementById('batch-actions');
+        actions.style.display = isSelectMode ? 'flex' : 'none';
+        selectedAvatars.clear();
+        updateView();
+    }
+
+    // 4. 更新视图（添加勾选框样式）
+    function updateView() {
+        const chars = document.querySelectorAll('.character_select');
+        chars.forEach(el => {
+            const avatar = el.getAttribute('id'); // 酒馆用avatar文件名作为ID
+            if (isSelectMode) {
+                el.style.position = 'relative';
+                el.style.border = selectedAvatars.has(avatar) ? '2px solid #00e5ff' : 'none';
+                el.onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (selectedAvatars.has(avatar)) selectedAvatars.delete(avatar);
+                    else selectedAvatars.add(avatar);
+                    updateView();
+                };
+            } else {
+                el.style.border = 'none';
+                el.onclick = null; // 恢复原状
+            }
         });
-    } catch(e) { console.warn('[BD] 世界书异常', e); }
-}
+        document.getElementById('batch-count').innerText = selectedAvatars.size;
+    }
 
-jQuery(async () => {
-    try { await injectToolbar(); }
-    catch(e) { console.error('[BD] 初始化失败', e); }
-});
+    // 5. 全选当前可见
+    function selectAll() {
+        const chars = document.querySelectorAll('.character_select');
+        chars.forEach(el => selectedAvatars.add(el.getAttribute('id')));
+        updateView();
+    }
+
+    // 6. 执行批量删除
+    async function executeDelete() {
+        if (selectedAvatars.size === 0) return;
+        
+        const includeWorld = confirm(`确认删除选中的 ${selectedAvatars.size} 个角色吗？\n\n注意：这将同时删除聊天记录。\n是否连带删除关联的【世界书】？`);
+        
+        let successCount = 0;
+        const avatarsArray = Array.from(selectedAvatars);
+        
+        // 禁用按钮防止重复点击
+        const btn = document.getElementById('btn-batch-confirm');
+        btn.disabled = true;
+        btn.innerText = "处理中...";
+
+        for (const avatar of avatarsArray) {
+            const ok = await deleteCharacter(avatar, includeWorld);
+            if (ok) successCount++;
+        }
+
+        alert(`清理完成！成功删除 ${successCount} 个角色。`);
+        location.reload(); // 刷新页面以同步酒馆内部状态
+    }
+
+    // 自动初始化
+    const observer = new MutationObserver((mutations) => {
+        if (document.querySelector('.rm_tag_controls')) {
+            injectUI();
+        }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+})();
