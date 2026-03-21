@@ -1,0 +1,121 @@
+/* ── 工具栏容器 ─────────────────────────────────────────── */
+#bd_toolbar {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+/* ── 隐藏类 ─────────────────────────────────────────────── */
+#bd_toolbar .bd_hidden {
+    display: none !important;
+}
+
+/* ── 按钮：复用酒馆 menu_button，微调尺寸 ──────────────── */
+#bd_toolbar .bd_btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    font-size: 0.82em;
+    height: auto;
+    white-space: nowrap;
+}
+
+#bd_toolbar .bd_btn.bd_active {
+    background: rgba(100, 160, 255, 0.25) !important;
+    border-color: rgba(100, 160, 255, 0.7) !important;
+    color: #8cb8ff !important;
+}
+
+#bd_toolbar .bd_danger {
+    color: #ff7b7b !important;
+}
+#bd_toolbar .bd_danger:hover {
+    background: rgba(220, 60, 60, 0.3) !important;
+}
+
+/* ── 计数器 ─────────────────────────────────────────────── */
+#bd_count {
+    font-size: 0.82em;
+    min-width: 20px;
+    text-align: center;
+    padding: 0 4px;
+    border-radius: 10px;
+    background: rgba(100, 160, 255, 0.2);
+    color: #8cb8ff;
+    line-height: 1.8;
+}
+
+/* ── 世界书选项 ─────────────────────────────────────────── */
+#bd_wb_label {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.82em;
+    cursor: pointer;
+    padding: 2px 5px;
+    border-radius: 4px;
+    white-space: nowrap;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.05);
+}
+#bd_wb_label:hover {
+    background: rgba(255,255,255,0.1);
+}
+#bd_wb_label input[type="checkbox"] {
+    cursor: pointer;
+    margin: 0;
+    width: 12px;
+    height: 12px;
+}
+
+/* ── 角色卡：确保 relative 定位 ────────────────────────── */
+.character_select.entity_block {
+    position: relative !important;
+}
+
+/* ── 勾选圆圈 ───────────────────────────────────────────── */
+.bd_overlay {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    border: 2px solid rgba(255, 255, 255, 0.45);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    transition: background 0.12s, border-color 0.12s;
+    pointer-events: all;
+}
+
+.bd_overlay:hover {
+    border-color: rgba(255, 255, 255, 0.9);
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.bd_overlay.bd_checked {
+    background: rgba(70, 140, 255, 0.85);
+    border-color: #ffffff;
+}
+
+.bd_overlay.bd_checked::after {
+    content: '✓';
+    color: #fff;
+    font-size: 13px;
+    font-weight: bold;
+    line-height: 1;
+}
+
+/* ── 选中高亮 ───────────────────────────────────────────── */
+.character_select.entity_block.bd_selected {
+    outline: 2px solid rgba(70, 140, 255, 0.65) !important;
+    outline-offset: -2px;
+    background: rgba(70, 140, 255, 0.07) !important;
+}
