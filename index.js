@@ -1,138 +1,141 @@
-/**
- * SillyTavern 角色卡批量删除插件脚本
- * 集成位置：角色面板标签栏右侧
- */
-(function() {
+(async function() {
+    // 等待核心组件加载
+    const waitForST = () => new Promise(res => {
+        const check = () => window.SillyTavern && window.SillyTavern.getContext ? res() : setTimeout(check, 100);
+        check();
+    });
+
+    await waitForST();
+    const { getRequestHeaders, printCharacters } = window.SillyTavern.getContext();
+
     let isSelectMode = false;
-    let selectedAvatars = new Set();
+    let selectedSet = new Set();
 
-    // 1. 核心删除函数：调用酒馆原生API
-    async function deleteCharacter(avatar, deleteWorldbook) {
-        try {
-            const { getRequestHeaders, characters, printCharacters } = SillyTavern.getContext();
-            
-            // 如果需要删除世界书
-            if (deleteWorldbook) {
-                const char = characters.find(c => c.avatar === avatar);
-                const worldName = char?.data?.world || char?.world;
-                if (worldName) {
-                    await fetch('/api/worldinfo/delete', {
-                        method: 'POST',
-                        headers: getRequestHeaders(),
-                        body: JSON.stringify({ name: worldName }),
-                    });
-                }
-            }
+    // 1. 注入 CSS 样式
+    const style = document.createElement('style');
+    style.innerHTML = `
+        .bd-selected { outline: 3px solid #ff4757 !important; position: relative; }
+        .bd-selected::after { content: '✓'; position: absolute; top: 5px; right: 5px; background: #ff4757; color: white; border-radius: 50%; width: 20px; height: 20px; text-align: center; line-height: 20px; font-weight: bold; }
+        .bd-btn { margin-left: 5px !important; padding: 0 10px !important; }
+        .bd-hidden { display: none !important; }
+    `;
+    document.head.appendChild(style);
 
-            // 删除角色卡
-            const res = await fetch('/api/characters/delete', {
-                method: 'POST',
-                headers: getRequestHeaders(),
-                body: JSON.stringify({ avatar_url: avatar, delete_chats: true }),
-            });
-
-            return res.ok;
-        } catch (e) {
-            console.error(`删除 ${avatar} 失败:`, e);
-            return false;
-        }
-    }
-
-    // 2. 注入UI按钮
+    // 2. 注入工具栏
     function injectUI() {
-        const container = document.querySelector('.rm_tag_controls .tags.rm_tag_filter');
-        if (!container || document.getElementById('batch-delete-tool')) return;
+        const container = document.querySelector('#rm_characters_block .rm_tag_controls');
+        if (!container || document.getElementById('bd_tools')) return;
 
-        const toolWrapper = document.createElement('div');
-        toolWrapper.id = 'batch-delete-tool';
-        toolWrapper.style = 'display:inline-flex; gap:5px; margin-left:auto; padding:2px;';
-
-        toolWrapper.innerHTML = `
-            <button id="btn-batch-toggle" class="menu_button" title="开启批量选择">
-                <i class="fa-solid fa-list-check"></i>
-            </button>
-            <div id="batch-actions" style="display:none; gap:5px;">
-                <button id="btn-batch-all" class="menu_button">全选</button>
-                <button id="btn-batch-confirm" class="menu_button" style="color: #ff4d4d;">
-                    <i class="fa-solid fa-trash-can"></i> 删除(<span id="batch-count">0</span>)
-                </button>
-            </div>
+        const tools = document.createElement('div');
+        tools.id = 'bd_tools';
+        tools.style.display = 'inline-flex';
+        tools.innerHTML = `
+            <button id="bd_toggle" class="menu_button bd-btn" title="批量删除模式"><i class="fa-solid fa-list-check"></i> 批量</button>
+            <button id="bd_all" class="menu_button bd-btn bd-hidden">全选</button>
+            <button id="bd_del" class="menu_button bd-btn bd-hidden" style="color:#ff4757;"><i class="fa-solid fa-trash"></i> 删除 (<span id="bd_count">0</span>)</button>
         `;
-        container.parentElement.appendChild(toolWrapper);
+        container.appendChild(tools);
 
-        // 事件绑定
-        document.getElementById('btn-batch-toggle').onclick = toggleMode;
-        document.getElementById('btn-batch-all').onclick = selectAll;
-        document.getElementById('btn-batch-confirm').onclick = executeDelete;
+        // 绑定事件
+        document.getElementById('bd_toggle').onclick = toggleMode;
+        document.getElementById('bd_all').onclick = toggleAll;
+        document.getElementById('bd_del').onclick = executeDelete;
     }
 
     // 3. 切换选择模式
     function toggleMode() {
         isSelectMode = !isSelectMode;
-        const actions = document.getElementById('batch-actions');
-        actions.style.display = isSelectMode ? 'flex' : 'none';
-        selectedAvatars.clear();
-        updateView();
-    }
-
-    // 4. 更新视图（添加勾选框样式）
-    function updateView() {
+        selectedSet.clear();
+        updateUI();
+        
         const chars = document.querySelectorAll('.character_select');
         chars.forEach(el => {
-            const avatar = el.getAttribute('id'); // 酒馆用avatar文件名作为ID
+            el.classList.remove('bd-selected');
             if (isSelectMode) {
-                el.style.position = 'relative';
-                el.style.border = selectedAvatars.has(avatar) ? '2px solid #00e5ff' : 'none';
                 el.onclick = (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (selectedAvatars.has(avatar)) selectedAvatars.delete(avatar);
-                    else selectedAvatars.add(avatar);
-                    updateView();
+                    const avatar = el.getAttribute('id');
+                    if (selectedSet.has(avatar)) {
+                        selectedSet.delete(avatar);
+                        el.classList.remove('bd-selected');
+                    } else {
+                        selectedSet.add(avatar);
+                        el.classList.add('bd-selected');
+                    }
+                    document.getElementById('bd_count').innerText = selectedSet.size;
                 };
             } else {
-                el.style.border = 'none';
-                el.onclick = null; // 恢复原状
+                el.onclick = null; // 恢复原本点击效果（刷新页面即可）
             }
         });
-        document.getElementById('batch-count').innerText = selectedAvatars.size;
     }
 
-    // 5. 全选当前可见
-    function selectAll() {
-        const chars = document.querySelectorAll('.character_select');
-        chars.forEach(el => selectedAvatars.add(el.getAttribute('id')));
-        updateView();
+    function updateUI() {
+        const isHidden = !isSelectMode;
+        document.getElementById('bd_all').classList.toggle('bd-hidden', isHidden);
+        document.getElementById('bd_del').classList.toggle('bd-hidden', isHidden);
+        document.getElementById('bd_toggle').classList.toggle('active', isSelectMode);
+        document.getElementById('bd_count').innerText = "0";
     }
 
-    // 6. 执行批量删除
+    function toggleAll() {
+        const chars = document.querySelectorAll('.character_select:not(.hidden)');
+        const allVisible = Array.from(chars).map(c => c.getAttribute('id'));
+        
+        if (selectedSet.size === allVisible.length) {
+            selectedSet.clear();
+            chars.forEach(c => c.classList.remove('bd-selected'));
+        } else {
+            allVisible.forEach(id => selectedSet.add(id));
+            chars.forEach(c => c.classList.add('bd-selected'));
+        }
+        document.getElementById('bd_count').innerText = selectedSet.size;
+    }
+
+    // 4. 执行删除逻辑
     async function executeDelete() {
-        if (selectedAvatars.size === 0) return;
+        if (selectedSet.size === 0) return;
         
-        const includeWorld = confirm(`确认删除选中的 ${selectedAvatars.size} 个角色吗？\n\n注意：这将同时删除聊天记录。\n是否连带删除关联的【世界书】？`);
+        const includeWorldbook = confirm(`确定删除这 ${selectedSet.size} 个角色吗？\n\n【确定】同时尝试删除关联的世界书\n【取消】仅删除角色卡`);
         
-        let successCount = 0;
-        const avatarsArray = Array.from(selectedAvatars);
-        
-        // 禁用按钮防止重复点击
-        const btn = document.getElementById('btn-batch-confirm');
-        btn.disabled = true;
-        btn.innerText = "处理中...";
+        let ok = 0, fail = 0;
+        const avatars = Array.from(selectedSet);
 
-        for (const avatar of avatarsArray) {
-            const ok = await deleteCharacter(avatar, includeWorld);
-            if (ok) successCount++;
+        for (const avatar of avatars) {
+            try {
+                // 如果需要删除世界书
+                if (includeWorldbook) {
+                    const charData = window.SillyTavern.getContext().characters.find(c => c.avatar === avatar);
+                    const wbName = charData?.data?.world || charData?.world;
+                    if (wbName) {
+                        await fetch('/api/worldinfo/delete', {
+                            method: 'POST',
+                            headers: getRequestHeaders(),
+                            body: JSON.stringify({ name: wbName })
+                        });
+                    }
+                }
+
+                // 删除角色卡
+                const res = await fetch('/api/characters/delete', {
+                    method: 'POST',
+                    headers: getRequestHeaders(),
+                    body: JSON.stringify({ avatar_url: avatar })
+                });
+
+                if (res.ok) ok++; else fail++;
+            } catch (e) {
+                console.error('删除失败:', avatar, e);
+                fail++;
+            }
         }
 
-        alert(`清理完成！成功删除 ${successCount} 个角色。`);
-        location.reload(); // 刷新页面以同步酒馆内部状态
+        alert(`清理完成！\n成功: ${ok}\n失败: ${fail}`);
+        toggleMode(); // 退出模式
+        printCharacters(); // 刷新酒馆列表
     }
 
-    // 自动初始化
-    const observer = new MutationObserver((mutations) => {
-        if (document.querySelector('.rm_tag_controls')) {
-            injectUI();
-        }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
+    // 初始化检查
+    setInterval(injectUI, 1000);
 })();
