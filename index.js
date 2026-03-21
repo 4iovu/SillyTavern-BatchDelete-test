@@ -1,5 +1,5 @@
 /**
- * 批量删除角色卡扩展
+ * 批量删除角色卡
  * 在角色列表 tag filter 栏最右侧注入批量选择/删除工具栏
  */
 
@@ -7,13 +7,14 @@ const MODULE_NAME = 'batch_delete';
 
 // ── CSRF Token ───────────────────────────────────────────────────
 function getRequestHeaders() {
-    // SillyTavern 把 CSRF token 存在 meta 标签或全局变量里
-    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-        ?? window.csrf_token
-        ?? '';
+    // 直接使用 ST 内置的 getRequestHeaders 函数
+    if (typeof window.getRequestHeaders === 'function') {
+        return window.getRequestHeaders();
+    }
+    // 兜底：从 script.js 导入
     return {
         'Content-Type': 'application/json',
-        'X-CSRF-Token': token,
+        'X-Csrf-Token': document.getElementById('csrf-token')?.value ?? '',
     };
 }
 
