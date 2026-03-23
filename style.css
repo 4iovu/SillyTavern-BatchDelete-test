@@ -1,89 +1,517 @@
-/* 批量删除面板模态框 */
-#batch-delete-modal {
+/* ═══════════════════════════════════════════════════════════════════════════
+   Bulk Character Deleter — style.css
+   Compatible with SillyTavern's CSS variable system
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Menu entry (in extensionsMenu list) ─────────────────────────────────── */
+#bcd-menu-entry {
+    cursor: pointer;
+}
+
+#bcd-menu-entry a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--SmartThemeBodyColor, #ccc);
+    text-decoration: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.15s, color 0.15s;
+}
+
+#bcd-menu-entry a:hover {
+    background: var(--SmartThemeBlurTintColor, rgba(255,255,255,0.07));
+    color: var(--SmartThemeEmColor, #fff);
+}
+
+#bcd-menu-entry a i {
+    width: 16px;
+    text-align: center;
+    color: var(--SmartThemeQuoteColor, #e87);
+}
+
+/* Fallback button style when using div instead of li */
+div#bcd-menu-entry {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 6px 10px;
+    color: var(--SmartThemeBodyColor, #ccc);
+    border-radius: 4px;
+    transition: background 0.15s;
+}
+
+div#bcd-menu-entry:hover {
+    background: var(--SmartThemeBlurTintColor, rgba(255,255,255,0.07));
+}
+
+div#bcd-menu-entry i {
+    color: var(--SmartThemeQuoteColor, #e87);
+}
+
+/* ── Overlay ─────────────────────────────────────────────────────────────── */
+.bcd-overlay {
     position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 600px;
-    max-width: 90vw;
-    height: 70vh;
-    background-color: var(--black80a);
-    border: 1px solid var(--SmartThemeBorderColor);
-    border-radius: 10px;
+    inset: 0;
     z-index: 9999;
+    background: rgba(0, 0, 0, 0.65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+}
+
+/* ── Main panel ──────────────────────────────────────────────────────────── */
+.bcd-panel {
+    background: var(--SmartThemeBlurTintColor, #2a2a2e);
+    border: 1px solid var(--SmartThemeBorderColor, #444);
+    border-radius: 12px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+    width: 560px;
+    max-width: 96vw;
+    max-height: 88vh;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-    backdrop-filter: blur(5px);
+    overflow: hidden;
+    color: var(--SmartThemeBodyColor, #ccc);
+    font-family: var(--mainFontFamily, inherit);
 }
 
-.bd-header {
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.bcd-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 10px 15px;
-    border-bottom: 1px solid var(--SmartThemeBorderColor);
+    justify-content: space-between;
+    padding: 14px 18px 10px;
+    border-bottom: 1px solid var(--SmartThemeBorderColor, #444);
+    flex-shrink: 0;
 }
 
-.bd-tabs {
+.bcd-title {
+    font-size: 1.1rem;
+    font-weight: 700;
     display: flex;
-    gap: 10px;
+    align-items: center;
+    gap: 8px;
+    color: var(--SmartThemeEmColor, #eee);
 }
 
-.bd-tab {
+.bcd-title i {
+    color: var(--SmartThemeQuoteColor, #e87);
+}
+
+.bcd-close-btn {
+    background: none;
+    border: none;
+    color: var(--SmartThemeBodyColor, #aaa);
+    font-size: 1.2rem;
     cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.15s, color 0.15s;
+    line-height: 1;
+}
+
+.bcd-close-btn:hover {
+    background: rgba(255,80,80,0.15);
+    color: #ff6b6b;
+}
+
+/* ── Tabs ────────────────────────────────────────────────────────────────── */
+.bcd-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 10px 18px 0;
+    flex-shrink: 0;
+}
+
+.bcd-tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--SmartThemeBodyColor, #aaa);
+    padding: 6px 16px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 6px 6px 0 0;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.bcd-tab:hover {
+    background: var(--SmartThemeBlurTintColor, rgba(255,255,255,0.06));
+    color: var(--SmartThemeEmColor, #ddd);
+}
+
+.bcd-tab.bcd-tab-active {
+    color: var(--SmartThemeEmColor, #fff);
+    border-bottom-color: var(--SmartThemeQuoteColor, #e87);
+    background: rgba(255,255,255,0.04);
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────────────────── */
+.bcd-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 18px 8px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--SmartThemeBorderColor, #3a3a3e);
+}
+
+.bcd-select-all-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.88rem;
+    cursor: pointer;
+    user-select: none;
+    color: var(--SmartThemeBodyColor, #bbb);
+    white-space: nowrap;
+}
+
+.bcd-select-all-label input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+    accent-color: var(--SmartThemeQuoteColor, #e87);
+}
+
+.bcd-search {
+    flex: 1;
+    background: var(--SmartThemeBlurTintColor, #333);
+    border: 1px solid var(--SmartThemeBorderColor, #555);
+    border-radius: 6px;
+    color: var(--SmartThemeBodyColor, #ccc);
+    font-size: 0.88rem;
     padding: 5px 10px;
-    border-radius: 5px;
-    background: var(--SmartThemeDarkColor);
-    color: var(--SmartThemeBodyColor);
-    transition: 0.2s;
+    outline: none;
+    transition: border-color 0.15s;
 }
 
-.bd-tab.active {
-    background: var(--SmartThemeBlurTintColor);
-    font-weight: bold;
+.bcd-search:focus {
+    border-color: var(--SmartThemeQuoteColor, #e87);
 }
 
-.bd-close {
-    cursor: pointer;
-    font-size: 1.2em;
+.bcd-search::placeholder {
+    color: var(--SmartThemeBodyColor, #777);
+    opacity: 0.6;
 }
 
-.bd-body {
+/* ── Progress bar ────────────────────────────────────────────────────────── */
+.bcd-progress-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 18px;
+    flex-shrink: 0;
+    background: rgba(0,0,0,0.15);
+}
+
+.bcd-progress-track {
+    flex: 1;
+    height: 6px;
+    background: var(--SmartThemeBorderColor, #444);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.bcd-progress-bar {
+    height: 100%;
+    background: var(--SmartThemeQuoteColor, #e87);
+    border-radius: 3px;
+    transition: width 0.2s ease;
+    width: 0%;
+}
+
+.bcd-progress-text {
+    font-size: 0.8rem;
+    color: var(--SmartThemeBodyColor, #aaa);
+    white-space: nowrap;
+    min-width: 48px;
+    text-align: right;
+}
+
+/* ── Item list ───────────────────────────────────────────────────────────── */
+.bcd-item-list {
     flex: 1;
     overflow-y: auto;
-    padding: 15px;
+    padding: 6px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
 }
 
-.bd-list-item {
+.bcd-item-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.bcd-item-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.bcd-item-list::-webkit-scrollbar-thumb {
+    background: var(--SmartThemeBorderColor, #555);
+    border-radius: 3px;
+}
+
+.bcd-item-row {
+    border-radius: 8px;
+    transition: background 0.12s;
+    overflow: hidden;
+}
+
+.bcd-item-row:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+.bcd-item-row.bcd-selected {
+    background: rgba(var(--SmartThemeQuoteColorRaw, 232, 136, 119), 0.13);
+    outline: 1px solid rgba(var(--SmartThemeQuoteColorRaw, 232, 136, 119), 0.3);
+}
+
+.bcd-item-row.bcd-active-char {
+    outline: 1px solid rgba(100, 200, 100, 0.4);
+}
+
+.bcd-row-inner {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding: 8px 10px;
+    cursor: pointer;
+    width: 100%;
+    box-sizing: border-box;
 }
 
-.bd-list-item:hover {
-    background-color: rgba(255,255,255,0.05);
+.bcd-checkbox {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    cursor: pointer;
+    accent-color: var(--SmartThemeQuoteColor, #e87);
 }
 
-.bd-list-item img {
-    width: 40px;
-    height: 40px;
+.bcd-avatar {
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     object-fit: cover;
+    flex-shrink: 0;
+    border: 2px solid var(--SmartThemeBorderColor, #555);
+    background: #222;
 }
 
-.bd-footer {
-    padding: 15px;
-    border-top: 1px solid var(--SmartThemeBorderColor);
+.bcd-wb-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: var(--SmartThemeBorderColor, #333);
+    color: var(--SmartThemeQuoteColor, #e87);
+    font-size: 1.2rem;
 }
 
-.bd-actions {
+.bcd-info {
+    flex: 1;
+    min-width: 0;
     display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.bcd-name {
+    font-size: 0.93rem;
+    font-weight: 600;
+    color: var(--SmartThemeEmColor, #e0e0e0);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bcd-world-tag {
+    font-size: 0.75rem;
+    color: var(--SmartThemeBodyColor, #aaa);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bcd-world-tag i {
+    color: var(--SmartThemeQuoteColor, #e87);
+    font-size: 0.7rem;
+}
+
+.bcd-empty {
+    text-align: center;
+    padding: 40px 0;
+    color: var(--SmartThemeBodyColor, #777);
+    font-size: 0.95rem;
+    opacity: 0.6;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+.bcd-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding: 10px 18px 14px;
+    border-top: 1px solid var(--SmartThemeBorderColor, #444);
+    flex-shrink: 0;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.bcd-btn {
+    background: var(--SmartThemeBlurTintColor, #3a3a40);
+    border: 1px solid var(--SmartThemeBorderColor, #555);
+    color: var(--SmartThemeBodyColor, #ccc);
+    padding: 7px 18px;
+    border-radius: 7px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.bcd-btn:hover:not(:disabled) {
+    background: rgba(255,255,255,0.08);
+    color: var(--SmartThemeEmColor, #fff);
+}
+
+.bcd-btn:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+}
+
+.bcd-btn-danger,
+.bcd-btn-delete.bcd-btn-danger {
+    background: rgba(200, 50, 50, 0.2);
+    border-color: rgba(200, 50, 50, 0.5);
+    color: #ff8080;
+}
+
+.bcd-btn-danger:hover:not(:disabled) {
+    background: rgba(200, 50, 50, 0.35);
+    border-color: rgba(220, 70, 70, 0.7);
+    color: #ffaaaa;
+}
+
+.bcd-btn-delete {
+    min-width: 130px;
+    justify-content: center;
+}
+
+/* ── Confirm modal ───────────────────────────────────────────────────────── */
+.bcd-confirm-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+}
+
+.bcd-confirm-box {
+    background: var(--SmartThemeBlurTintColor, #2e2e34);
+    border: 1px solid var(--SmartThemeBorderColor, #555);
+    border-radius: 12px;
+    padding: 28px 28px 22px;
+    width: 420px;
+    max-width: 94vw;
+    box-shadow: 0 10px 50px rgba(0,0,0,0.7);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.bcd-confirm-icon {
+    text-align: center;
+    font-size: 2.2rem;
+    color: #f0a060;
+}
+
+.bcd-confirm-msg {
+    text-align: center;
+    font-size: 0.95rem;
+    color: var(--SmartThemeBodyColor, #ccc);
+    line-height: 1.5;
+    margin: 0;
+}
+
+.bcd-confirm-wb-section {
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--SmartThemeBorderColor, #444);
+    border-radius: 8px;
+    padding: 12px 14px;
+}
+
+.bcd-confirm-wb-title {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--SmartThemeEmColor, #ddd);
+    margin: 0 0 8px;
+}
+
+.bcd-confirm-wb-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.bcd-wb-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.88rem;
+    color: var(--SmartThemeBodyColor, #bbb);
+    cursor: pointer;
+}
+
+.bcd-wb-check input[type="checkbox"] {
+    accent-color: var(--SmartThemeQuoteColor, #e87);
+    cursor: pointer;
+}
+
+.bcd-confirm-actions {
+    display: flex;
+    justify-content: flex-end;
     gap: 10px;
-    align-items: center;
+    margin-top: 4px;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+    .bcd-panel {
+        width: 98vw;
+        max-height: 92vh;
+        border-radius: 10px;
+    }
+
+    .bcd-confirm-box {
+        padding: 20px 16px 16px;
+    }
+
+    .bcd-header,
+    .bcd-toolbar,
+    .bcd-footer {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
 }
