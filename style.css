@@ -1,74 +1,57 @@
-/* 批量删除面板样式 */
-#mass-delete-manager {
-    display: none;
+#batch-delete-panel {
     position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 80%;
-    max-width: 800px;
-    height: 70vh;
+    top: 10%;
+    left: 30%;
+    width: 400px;
     background: var(--mainColor);
     border: 1px solid var(--borderColor);
-    z-index: 3000;
-    flex-direction: column;
-    padding: 20px;
+    z-index: 2000;
+    padding: 10px;
     border-radius: 10px;
-    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    color: var(--textColor);
+    box-shadow: 0 0 15px rgba(0,0,0,0.5);
 }
 
-.md-header {
+.batch-tabs {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+
+.batch-tabs .active {
+    background-color: var(--infoColor) !important;
+}
+
+.batch-content {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.batch-controls {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-}
-
-.md-tabs {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 15px;
-}
-
-.md-tab-btn {
-    padding: 8px 15px;
-    cursor: pointer;
-    background: rgba(255,255,255,0.1);
-    border-radius: 5px;
-}
-
-.md-tab-btn.active {
-    background: var(--blue-color);
-    color: white;
-}
-
-.md-list-container {
-    flex-grow: 1;
-    overflow-y: auto;
-    border: 1px solid rgba(255,255,255,0.1);
+    padding: 5px;
     background: rgba(0,0,0,0.2);
-    padding: 10px;
+    margin-bottom: 5px;
 }
 
-.md-item {
-    display: flex;
-    align-items: center;
+#batch-list label {
+    display: block;
     padding: 8px;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    cursor: pointer;
 }
 
-.md-item:hover {
+#batch-list label:hover {
     background: rgba(255,255,255,0.05);
 }
 
-.md-footer {
-    margin-top: 15px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+.batch-footer {
+    margin-top: 10px;
+    text-align: right;
 }
 
-.md-danger-btn {
-    background-color: #d9534f !important;
-    color: white !important;
+#exec-delete {
+    width: 100%;
+    font-weight: bold;
 }
