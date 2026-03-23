@@ -1,60 +1,356 @@
-        #bcd-batch-btn {
-            margin-left: auto;
-            flex-shrink: 0;
-        }
-        #bcd-batch-btn.bcd-active {
-            color: var(--active);
-            filter: drop-shadow(0 0 4px var(--active));
-        }
+/* ═══════════════════════════════════════════════════════════════
+   Bulk Character Delete — SillyTavern Extension
+   style.css
+   ═══════════════════════════════════════════════════════════════ */
 
-        /* Floating toolbar */
-        #bcd-toolbar {
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 6px;
-            padding: 6px 8px;
-            margin: 4px 0;
-            background: var(--grey-color, rgba(80,80,80,0.15));
-            border: 1px solid var(--border-color, #555);
-            border-radius: 6px;
-        }
-        #bcd-toolbar.bcd-hidden { display: none !important; }
+/* ── 触发按钮（注入到角色列表工具栏） ──────────────────────── */
 
-        #bcd-selected-count {
-            font-size: 0.82em;
-            opacity: 0.75;
-            min-width: 80px;
-        }
+.bulk_char_delete_trigger_btn {
+    color: var(--SmartThemeBodyColor, #ccc);
+    transition: color 0.2s, transform 0.15s;
+    cursor: pointer;
+    font-size: 1rem;
+}
 
-        #bcd-delete-btn:disabled {
-            opacity: 0.35;
-            cursor: not-allowed;
-        }
+.bulk_char_delete_trigger_btn:hover {
+    color: var(--SmartThemeQuoteColor, #e57373) !important;
+    transform: scale(1.15);
+}
 
-        /* Worldbook checkbox label */
-        #bcd-wb-label {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 0.82em;
-            cursor: pointer;
-            user-select: none;
-            margin-left: auto;
-        }
-        #bcd-worldbook-check {
-            accent-color: var(--active, #f38ba8);
-        }
+.bulk_char_delete_trigger_btn.bulk_char_delete_active {
+    color: var(--SmartThemeQuoteColor, #e57373) !important;
+}
 
-        /* Character card highlight in pick mode */
-        #rm_print_characters_block.bcd-picking .character_select {
-            cursor: crosshair;
-            transition: outline 0.1s;
-        }
-        #rm_print_characters_block.bcd-picking .character_select:hover {
-            outline: 2px dashed var(--active, #89b4fa);
-        }
-        .character_select.bcd-selected {
-            outline: 2px solid var(--active, #f38ba8) !important;
-            background: color-mix(in srgb, var(--active, #f38ba8) 12%, transparent) !important;
-        }
+/* ── 主面板 ────────────────────────────────────────────────── */
+
+.bulk_char_delete_panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    background: var(--SmartThemeBlurTintColor, rgba(20, 20, 30, 0.95));
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,0.1));
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 6px 4px 8px 4px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+    z-index: 10;
+    animation: bcd_slideIn 0.18s ease-out;
+}
+
+@keyframes bcd_slideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── 头部 ────────────────────────────────────────────────────── */
+
+.bulk_char_delete_header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    background: rgba(229, 115, 115, 0.12);
+    border-bottom: 1px solid rgba(229, 115, 115, 0.2);
+    gap: 8px;
+}
+
+.bulk_char_delete_title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--SmartThemeQuoteColor, #e57373);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.bulk_char_delete_header_actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: nowrap;
+}
+
+/* ── 通用小按钮 ────────────────────────────────────────────── */
+
+.bulk_char_delete_btn {
+    font-size: 0.75rem !important;
+    padding: 3px 8px !important;
+    height: 26px !important;
+    line-height: 1 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    border-radius: 6px !important;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s, transform 0.1s;
+}
+
+.bulk_char_delete_btn:hover {
+    transform: scale(1.05);
+}
+
+.bulk_char_delete_btn_close {
+    padding: 3px 6px !important;
+    color: var(--SmartThemeBodyColor, #aaa) !important;
+    opacity: 0.7;
+}
+
+.bulk_char_delete_btn_close:hover {
+    opacity: 1;
+    color: var(--SmartThemeQuoteColor, #e57373) !important;
+}
+
+/* 删除按钮 */
+.bulk_char_delete_btn_delete {
+    background: rgba(229, 115, 115, 0.15) !important;
+    border-color: rgba(229, 115, 115, 0.4) !important;
+    color: #e57373 !important;
+    font-weight: 600 !important;
+    font-size: 0.8rem !important;
+    padding: 5px 14px !important;
+    height: 32px !important;
+}
+
+.bulk_char_delete_btn_delete:hover:not(:disabled) {
+    background: rgba(229, 115, 115, 0.3) !important;
+    border-color: #e57373 !important;
+    transform: none;
+}
+
+.bulk_char_delete_btn_delete:disabled {
+    opacity: 0.4 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
+/* ── 过滤行 ────────────────────────────────────────────────── */
+
+.bulk_char_delete_filter_row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,0.07));
+}
+
+.bulk_char_delete_search {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.82rem !important;
+    height: 28px !important;
+    padding: 2px 8px !important;
+    border-radius: 6px !important;
+}
+
+.bulk_char_delete_count_badge {
+    font-size: 0.72rem;
+    color: var(--SmartThemeBodyColor, #aaa);
+    opacity: 0.75;
+    white-space: nowrap;
+    min-width: 70px;
+    text-align: right;
+}
+
+/* ── 角色列表 ──────────────────────────────────────────────── */
+
+.bulk_char_delete_char_list {
+    display: flex;
+    flex-direction: column;
+    max-height: 320px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px 0;
+
+    /* 自定义滚动条 */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.15) transparent;
+}
+
+.bulk_char_delete_char_list::-webkit-scrollbar {
+    width: 5px;
+}
+.bulk_char_delete_char_list::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.15);
+    border-radius: 3px;
+}
+.bulk_char_delete_char_list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* 单个角色条目 */
+.bulk_char_delete_char_item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px;
+    cursor: pointer;
+    transition: background 0.12s;
+    border-left: 3px solid transparent;
+    user-select: none;
+}
+
+.bulk_char_delete_char_item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.bulk_char_delete_char_item.bulk_char_delete_selected {
+    background: rgba(229, 115, 115, 0.1);
+    border-left-color: #e57373;
+}
+
+/* 隐藏原生 checkbox，用自定义样式 */
+.bulk_char_delete_char_checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    border: 1.5px solid rgba(255,255,255,0.25);
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.bulk_char_delete_char_checkbox:checked {
+    background: #e57373;
+    border-color: #e57373;
+}
+
+.bulk_char_delete_char_checkbox:checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #fff;
+    font-size: 10px;
+    line-height: 1;
+    font-weight: 700;
+}
+
+.bulk_char_delete_char_checkbox:hover:not(:checked) {
+    border-color: rgba(229, 115, 115, 0.6);
+}
+
+/* 头像缩略图 */
+.bulk_char_delete_char_avatar {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1.5px solid rgba(255,255,255,0.1);
+    transition: border-color 0.15s;
+}
+
+.bulk_char_delete_char_item.bulk_char_delete_selected .bulk_char_delete_char_avatar {
+    border-color: #e57373;
+}
+
+/* 角色名 */
+.bulk_char_delete_char_name {
+    flex: 1;
+    font-size: 0.83rem;
+    color: var(--SmartThemeBodyColor, #ddd);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bulk_char_delete_char_item.bulk_char_delete_selected .bulk_char_delete_char_name {
+    color: #ffbaba;
+}
+
+/* 世界书徽章 */
+.bulk_char_delete_wb_badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.68rem;
+    color: var(--SmartThemeQuoteColor, #7db9de);
+    opacity: 0.8;
+    background: rgba(125, 185, 222, 0.12);
+    border: 1px solid rgba(125, 185, 222, 0.2);
+    border-radius: 10px;
+    padding: 1px 6px;
+    white-space: nowrap;
+    cursor: help;
+}
+
+/* 空状态 */
+.bulk_char_delete_empty {
+    text-align: center;
+    padding: 20px;
+    color: var(--SmartThemeBodyColor, #aaa);
+    opacity: 0.5;
+    font-size: 0.82rem;
+}
+
+/* ── 底部栏 ──────────────────────────────────────────────── */
+
+.bulk_char_delete_footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    border-top: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,0.07));
+    background: rgba(0,0,0,0.15);
+    flex-wrap: wrap;
+}
+
+/* 世界书选项 */
+.bulk_char_delete_worldbook_option {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    font-size: 0.8rem !important;
+    cursor: pointer;
+    color: var(--SmartThemeBodyColor, #ccc) !important;
+    margin: 0 !important;
+}
+
+.bulk_char_delete_worldbook_option input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    accent-color: #7db9de;
+}
+
+/* 帮助图标 */
+.bulk_char_delete_help_icon {
+    font-size: 0.7rem;
+    opacity: 0.5;
+    cursor: help;
+    transition: opacity 0.15s;
+}
+.bulk_char_delete_help_icon:hover {
+    opacity: 1;
+}
+
+/* ── 响应式（移动端） ─────────────────────────────────────── */
+
+@media (max-width: 600px) {
+    .bulk_char_delete_panel {
+        margin: 4px 2px 6px 2px;
+    }
+
+    .bulk_char_delete_char_list {
+        max-height: 240px;
+    }
+
+    .bulk_char_delete_footer {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+    }
+
+    .bulk_char_delete_btn_delete {
+        width: 100%;
+        justify-content: center;
+    }
+}
