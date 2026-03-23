@@ -1,116 +1,118 @@
-import { characters, deleteCharacter, getCharacters } from "../../../script.js";
-import { world_info, deleteWorldInfo } from "../../world-info.js";
+import { 
+    characters, 
+    deleteCharacter, 
+    getCharacterById 
+} from "../../../script.js";
+import { 
+    world_info, 
+    deleteWorldInfo 
+} from "../../world-info.js";
 
-(function() {
-    const extensionName = "batch-delete";
-    const extensionFolderPath = `scripts/extensions/third-party/${extensionName}`;
+// 插件配置与状态
+const MODULE_NAME = "BatchDelete";
+let isWorldInfoTab = false;
 
-    // 在扩展菜单中添加按钮
-    function addMenuButton() {
-        const menu = document.getElementById('extensionsMenu');
-        if (!menu) return;
-
-        const menuItem = document.createElement('div');
-        menuItem.classList.add('list-group-item', 'menu_button', 'fa-solid', 'fa-trash');
-        menuItem.style.cursor = 'pointer';
-        menuItem.innerHTML = ' <span style="margin-left:10px;">批量删除角色卡</span>';
-        
-        menuItem.addEventListener('click', () => {
-            showBatchDeletePanel();
-        });
-
-        menu.appendChild(menuItem);
-    }
-
-    // 显示弹出面板
-    async function showBatchDeletePanel() {
-        const panelHtml = `
-            <div id="batch-delete-panel" class="draggable">
-                <div class="dragTitle">批量删除管理器</div>
-                <div class="panelControlBar">
-                    <div class="fa-solid fa-circle-xmark dragClose" id="close-batch-panel"></div>
+async function showDeletePanel() {
+    const listHtml = generateListHtml();
+    const panelHtml = `
+        <div id="batch-delete-overlay" class="list-group">
+            <div id="batch-delete-panel">
+                <div class="panel-header">
+                    <div id="tab-chars" class="tab-item ${!isWorldInfoTab ? 'active' : ''}">角色卡</div>
+                    <div id="tab-worlds" class="tab-item ${isWorldInfoTab ? 'active' : ''}">世界书</div>
+                    <div class="close-panel">×</div>
                 </div>
-                <div class="batch-tabs">
-                    <button id="tab-chars" class="menu_button active">角色卡</button>
-                    <button id="tab-world" class="menu_button">世界书</button>
+                <div class="panel-controls">
+                    <label><input type="checkbox" id="select-all"> 全选</label>
+                    <label id="option-del-world" style="${isWorldInfoTab ? 'display:none' : ''}">
+                        <input type="checkbox" id="include-world-info"> 同时删除关联世界书
+                    </label>
                 </div>
-                <div class="batch-content">
-                    <div class="batch-controls">
-                        <label><input type="checkbox" id="select-all"> 全选</label>
-                        <label id="wi-option-label"><input type="checkbox" id="delete-linked-wi"> 同时删除关联世界书</label>
-                    </div>
-                    <div id="batch-list" class="list-group">
-                        </div>
-                </div>
-                <div class="batch-footer">
-                    <button id="exec-delete" class="menu_button redWarningBG">确认删除所选</button>
+                <div class="panel-list">${listHtml}</div>
+                <div class="panel-footer">
+                    <button id="confirm-batch-delete" class="menu_button red_button">确认删除已选</button>
                 </div>
             </div>
-        `;
+        </div>
+    `;
+    $('body').append(panelHtml);
+    bindPanelEvents();
+}
 
-        $('body').append(panelHtml);
-        $('#batch-delete-panel').draggable({ handle: '.dragTitle' });
+function generateListHtml() {
+    if (!isWorldInfoTab) {
+        // 渲染角色卡列表
+        return characters.map((char, index) => `
+            <div class="item-row" data-id="${index}">
+                <input type="checkbox" class="item-checkbox">
+                <img src="${char.avatar}" class="item-avatar">
+                <span>${char.name}</span>
+            </div>
+        `).join('');
+    } else {
+        // 渲染世界书列表
+        return Object.keys(world_info).map(key => `
+            <div class="item-row" data-id="${key}">
+                <input type="checkbox" class="item-checkbox">
+                <span>${key}</span>
+            </div>
+        `).join('');
+    }
+}
 
-        let currentTab = 'chars';
+function bindPanelEvents() {
+    // 关闭面板
+    $('.close-panel, #batch-delete-overlay').on('click', function(e) {
+        if (e.target === this) $('#batch-delete-overlay').remove();
+    });
+
+    // 切换页签
+    $('#tab-chars').on('click', () => { isWorldInfoTab = false; refreshPanel(); });
+    $('#tab-worlds').on('click', () => { isWorldInfoTab = true; refreshPanel(); });
+
+    // 全选逻辑
+    $('#select-all').on('change', function() {
+        $('.item-checkbox').prop('checked', this.checked);
+    });
+
+    // 执行删除
+    $('#confirm-batch-delete').on('click', async () => {
+        const selected = $('.item-checkbox:checked').closest('.item-row');
+        if (selected.length === 0) return toastr.warning("请至少选择一项");
         
-        const refreshList = () => {
-            const list = $('#batch-list');
-            list.empty();
-            if (currentTab === 'chars') {
-                $('#wi-option-label').show();
-                characters.forEach((char, index) => {
-                    list.append(`<label class="list-group-item"><input type="checkbox" class="item-check" data-id="${index}"> ${char.name}</label>`);
-                });
-            } else {
-                $('#wi-option-label').hide();
-                Object.keys(world_info).forEach(key => {
-                    list.append(`<label class="list-group-item"><input type="checkbox" class="item-check" data-id="${key}"> ${key}</label>`);
-                });
-            }
-        };
-
-        refreshList();
-
-        // 切换标签
-        $('#tab-chars').click(() => { currentTab = 'chars'; $('.batch-tabs button').removeClass('active'); $('#tab-chars').addClass('active'); refreshList(); });
-        $('#tab-world').click(() => { currentTab = 'world'; $('.batch-tabs button').removeClass('active'); $('#tab-world').addClass('active'); refreshList(); });
-
-        // 全选逻辑
-        $('#select-all').change(function() {
-            $('.item-check').prop('checked', $(this).prop('checked'));
-        });
-
-        // 执行删除
-        $('#exec-delete').click(async () => {
-            const selected = $('.item-check:checked');
-            if (selected.length === 0) return toastr.info("请先勾选项目");
-            if (!confirm(`确定要删除选中的 ${selected.length} 个项目吗？此操作不可逆！`)) return;
-
-            const deleteWI = $('#delete-linked-wi').is(':checked');
-
+        if (confirm(`确定要删除选中的 ${selected.length} 个项目吗？此操作不可撤销！`)) {
+            const delWorld = $('#include-world-info').is(':checked');
+            
             for (let el of selected) {
                 const id = $(el).data('id');
-                if (currentTab === 'chars') {
+                if (!isWorldInfoTab) {
                     const char = characters[id];
-                    // 如果勾选了同时删除世界书且角色有关联
-                    if (deleteWI && char.world_info && world_info[char.world_info]) {
-                        await deleteWorldInfo(char.world_info);
-                    }
+                    // 如果勾选了删除世界书且角色有关联
+                    if (delWorld && char.world) await deleteWorldInfo(char.world);
                     await deleteCharacter(id);
                 } else {
                     await deleteWorldInfo(id);
                 }
             }
             toastr.success("批量删除完成");
-            $('#batch-delete-panel').remove();
-            location.reload(); // 刷新页面以同步状态
-        });
-
-        $('#close-batch-panel').click(() => $('#batch-delete-panel').remove());
-    }
-
-    // 初始化插件
-    $(document).ready(() => {
-        addMenuButton();
+            $('#batch-delete-overlay').remove();
+        }
     });
-})();
+}
+
+function refreshPanel() {
+    $('#batch-delete-overlay').remove();
+    showDeletePanel();
+}
+
+// 初始化：注入菜单按钮
+jQuery(() => {
+    const menuBtn = `
+        <div id="batch-delete-btn" class="list-group-item menu_button flex-container">
+            <i class="fa-solid fa-trash fa-fw"></i>
+            <span data-i18n="Batch Delete Characters">批量删除角色卡</span>
+        </div>
+    `;
+    $('#extensionsMenu').append(menuBtn);
+    $(document).on('click', '#batch-delete-btn', showDeletePanel);
+});

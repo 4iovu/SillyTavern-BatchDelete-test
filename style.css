@@ -1,57 +1,54 @@
-#batch-delete-panel {
+#batch-delete-overlay {
     position: fixed;
-    top: 10%;
-    left: 30%;
-    width: 400px;
-    background: var(--mainColor);
-    border: 1px solid var(--borderColor);
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.7);
     z-index: 2000;
-    padding: 10px;
+    display: flex; justify-content: center; align-items: center;
+}
+
+#batch-delete-panel {
+    background: var(--mainColor);
+    width: 80%; max-width: 600px;
+    height: 70vh;
     border-radius: 10px;
-    color: var(--textColor);
-    box-shadow: 0 0 15px rgba(0,0,0,0.5);
+    display: flex; flex-direction: column;
+    padding: 15px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
 }
 
-.batch-tabs {
-    display: flex;
-    gap: 5px;
-    margin-bottom: 10px;
+.panel-header {
+    display: flex; border-bottom: 1px solid #555; padding-bottom: 10px;
 }
 
-.batch-tabs .active {
-    background-color: var(--infoColor) !important;
+.tab-item {
+    padding: 10px 20px; cursor: pointer; opacity: 0.6;
 }
 
-.batch-content {
-    max-height: 400px;
-    overflow-y: auto;
+.tab-item.active {
+    opacity: 1; border-bottom: 2px solid var(--goldColor);
 }
 
-.batch-controls {
-    display: flex;
-    justify-content: space-between;
-    padding: 5px;
-    background: rgba(0,0,0,0.2);
-    margin-bottom: 5px;
+.close-panel {
+    margin-left: auto; font-size: 24px; cursor: pointer;
 }
 
-#batch-list label {
-    display: block;
-    padding: 8px;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    cursor: pointer;
+.panel-controls {
+    padding: 10px 0; display: flex; gap: 20px; font-size: 0.9em;
 }
 
-#batch-list label:hover {
-    background: rgba(255,255,255,0.05);
+.panel-list {
+    flex: 1; overflow-y: auto; border: 1px solid #444; margin: 10px 0;
 }
 
-.batch-footer {
-    margin-top: 10px;
-    text-align: right;
+.item-row {
+    display: flex; align-items: center; padding: 8px; border-bottom: 1px solid #333; gap: 10px;
 }
 
-#exec-delete {
-    width: 100%;
-    font-weight: bold;
+.item-avatar {
+    width: 40px; height: 40px; border-radius: 50%; object-fit: cover;
+}
+
+.red_button {
+    background-color: #933 !important; color: white !important;
+    width: 100%; padding: 10px; border-radius: 5px; cursor: pointer;
 }
