@@ -1,562 +1,670 @@
-/* ═══════════════════════════════════════════════════════════════════════════
-   Bulk Character Deleter — style.css
-   Mobile-first, compatible with SillyTavern CSS variable system
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* =========================================================
+   Bulk Delete Extension — style.css
+   SillyTavern 批量删除角色卡 & 世界书插件
+   ========================================================= */
 
-/* ── Menu entry ──────────────────────────────────────────────────────────── */
-#bcd-menu-entry {
-    cursor: pointer;
+/* ─── 扩展菜单入口项 ─────────────────────────────────────────────────────────── */
+#bulk_delete_menu_item {
+    list-style: none;
 }
 
-#bcd-menu-entry a {
+#bulk_delete_open_btn {
     display: flex;
     align-items: center;
     gap: 8px;
-    color: var(--SmartThemeBodyColor, #ccc);
+    padding: 6px 12px;
+    color: var(--SmartThemeBodyColor, #ddd);
     text-decoration: none;
-    padding: 8px 10px;
+    cursor: pointer;
     border-radius: 4px;
     transition: background 0.15s, color 0.15s;
-    min-height: 44px;
+    font-size: 0.95em;
+    white-space: nowrap;
 }
 
-#bcd-menu-entry a:hover,
-#bcd-menu-entry a:active {
-    background: var(--SmartThemeBlurTintColor, rgba(255,255,255,0.07));
-    color: var(--SmartThemeEmColor, #fff);
+#bulk_delete_open_btn:hover {
+    background: var(--SmartThemeBlurTintColor, rgba(255, 100, 100, 0.18));
+    color: #ff7b7b;
 }
 
-#bcd-menu-entry a i {
+#bulk_delete_open_btn i {
     width: 18px;
     text-align: center;
-    color: var(--SmartThemeQuoteColor, #e87);
-    font-size: 1rem;
+    color: #e05555;
 }
 
-div#bcd-menu-entry {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    padding: 8px 10px;
-    min-height: 44px;
-    color: var(--SmartThemeBodyColor, #ccc);
-    border-radius: 4px;
-    transition: background 0.15s;
-    -webkit-tap-highlight-color: transparent;
-}
-
-div#bcd-menu-entry i {
-    color: var(--SmartThemeQuoteColor, #e87);
-}
-
-/* ── Overlay ─────────────────────────────────────────────────────────────── */
-.bcd-overlay {
+/* ─── 遮罩层 ─────────────────────────────────────────────────────────────────── */
+.bulk-delete-overlay {
     position: fixed;
     inset: 0;
-    z-index: 9999;
+    z-index: 9998;
     background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(3px);
     display: flex;
     align-items: center;
     justify-content: center;
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
-    animation: bcd-fade-in 0.18s ease;
-    /* 四周留出 16px 间距，同时尊重刘海 / Home Bar 安全区 */
-    padding-top:    max(16px, env(safe-area-inset-top,    16px));
-    padding-right:  max(16px, env(safe-area-inset-right,  16px));
-    padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
-    padding-left:   max(16px, env(safe-area-inset-left,   16px));
+    padding: clamp(12px, 4vw, 32px);
     box-sizing: border-box;
+    /* 手机端四边与屏幕有距离，由 padding + clamp 自动控制 */
 }
 
-@keyframes bcd-fade-in {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-}
-
-/* ── Panel — centered floating card (mobile & desktop) ──────────────────── */
-.bcd-panel {
-    background: var(--SmartThemeBlurTintColor, #232327);
-    border: 1px solid var(--SmartThemeBorderColor, #444);
-    border-radius: 16px;
-    box-shadow: 0 8px 48px rgba(0,0,0,0.65);
-    /* 撑满 overlay 已留好间距的内容区 */
-    width: 100%;
-    max-width: 560px;
-    height: 100%;
-    max-height: 100%;
+/* ─── 主面板 ─────────────────────────────────────────────────────────────────── */
+.bulk-delete-panel {
+    background: var(--SmartThemeBlurTintColor, #1e1e2e);
+    background-color: color-mix(in srgb, var(--SmartThemeBodyColor, #2a2a3a) 5%, #1a1a28 95%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
     display: flex;
     flex-direction: column;
+    width: min(520px, 100%);
+    max-height: min(80vh, 700px);
     overflow: hidden;
-    color: var(--SmartThemeBodyColor, #ccc);
-    font-family: var(--mainFontFamily, inherit);
-    animation: bcd-zoom-in 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+    animation: bdSlideIn 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
 }
 
-/* 居中布局不需要拖动把手 */
-.bcd-panel::before { display: none; }
+@keyframes bdSlideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.92) translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
 
-/* ── Header ──────────────────────────────────────────────────────────────── */
-.bcd-header {
+/* ─── 标题栏 ─────────────────────────────────────────────────────────────────── */
+.bd-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 16px;
-    border-bottom: 1px solid var(--SmartThemeBorderColor, #3a3a3e);
+    padding: 16px 20px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     flex-shrink: 0;
 }
 
-.bcd-title {
-    font-size: 1.05rem;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--SmartThemeEmColor, #eee);
-}
-
-.bcd-title i {
-    color: var(--SmartThemeQuoteColor, #e87);
-}
-
-.bcd-close-btn {
-    background: none;
-    border: none;
-    color: var(--SmartThemeBodyColor, #aaa);
-    cursor: pointer;
-    width: 44px;
-    height: 44px;
-    font-size: 1.3rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    transition: background 0.15s, color 0.15s;
-    -webkit-tap-highlight-color: transparent;
-    flex-shrink: 0;
-}
-
-.bcd-close-btn:active {
-    background: rgba(255,80,80,0.18);
-    color: #ff6b6b;
-}
-
-/* ── Tabs ────────────────────────────────────────────────────────────────── */
-.bcd-tabs {
-    display: flex;
-    flex-shrink: 0;
-    border-bottom: 1px solid var(--SmartThemeBorderColor, #3a3a3e);
-}
-
-.bcd-tab {
-    flex: 1;
-    background: none;
-    border: none;
-    border-bottom: 3px solid transparent;
-    color: var(--SmartThemeBodyColor, #aaa);
-    padding: 12px 8px;
-    font-size: 0.95rem;
+.bd-title {
+    font-size: 1.05em;
     font-weight: 600;
-    cursor: pointer;
+    color: var(--SmartThemeBodyColor, #e0e0e0);
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 7px;
-    min-height: 50px;
+    gap: 8px;
+}
+
+.bd-title i {
+    color: #e05555;
+}
+
+.bd-close-btn {
+    background: none;
+    border: none;
+    color: var(--SmartThemeBodyColor, #aaa);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 1.1em;
+    line-height: 1;
+    transition: background 0.15s, color 0.15s;
+    opacity: 0.6;
+}
+
+.bd-close-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    opacity: 1;
+    color: #ff7b7b;
+}
+
+/* ─── Tab 切换 ───────────────────────────────────────────────────────────────── */
+.bd-tabs {
+    display: flex;
+    padding: 0 16px;
+    gap: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.bd-tab {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.45);
+    cursor: pointer;
+    padding: 12px 14px 10px;
+    font-size: 0.88em;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-bottom: 2px solid transparent;
     transition: color 0.15s, border-color 0.15s;
-    -webkit-tap-highlight-color: transparent;
+    white-space: nowrap;
+    position: relative;
+    top: 1px;
 }
 
-.bcd-tab:active {
-    background: rgba(255,255,255,0.04);
+.bd-tab:hover {
+    color: rgba(255, 255, 255, 0.75);
 }
 
-.bcd-tab.bcd-tab-active {
-    color: var(--SmartThemeEmColor, #fff);
-    border-bottom-color: var(--SmartThemeQuoteColor, #e87);
+.bd-tab.active {
+    color: var(--SmartThemeBodyColor, #e0e0e0);
+    border-bottom-color: #7b9ee8;
 }
 
-/* ── Toolbar ─────────────────────────────────────────────────────────────── */
-.bcd-toolbar {
+.bd-tab-count {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    padding: 1px 7px;
+    font-size: 0.8em;
+    font-weight: 600;
+    min-width: 20px;
+    text-align: center;
+    transition: background 0.15s;
+}
+
+.bd-tab.active .bd-tab-count {
+    background: rgba(123, 158, 232, 0.3);
+    color: #a0c0ff;
+}
+
+/* ─── 工具栏 ─────────────────────────────────────────────────────────────────── */
+.bd-toolbar {
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 10px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     flex-shrink: 0;
+    flex-wrap: wrap;
 }
 
-.bcd-select-all-label {
+.bd-select-all-label {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 0.93rem;
+    gap: 7px;
     cursor: pointer;
+    font-size: 0.85em;
+    color: var(--SmartThemeBodyColor, #ccc);
     user-select: none;
-    color: var(--SmartThemeBodyColor, #bbb);
-    white-space: nowrap;
-    min-height: 44px;
-    -webkit-tap-highlight-color: transparent;
-}
-
-.bcd-select-all-label input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
-    cursor: pointer;
-    accent-color: var(--SmartThemeQuoteColor, #e87);
     flex-shrink: 0;
 }
 
-/* font-size:16px prevents iOS auto-zoom on focus */
-.bcd-search {
+.bd-selected-info {
+    font-size: 0.78em;
+    color: rgba(255, 255, 255, 0.4);
     flex: 1;
-    background: rgba(0,0,0,0.25);
-    border: 1px solid var(--SmartThemeBorderColor, #555);
-    border-radius: 20px;
-    color: var(--SmartThemeBodyColor, #ccc);
-    font-size: 16px;
-    padding: 8px 14px;
-    outline: none;
-    min-height: 42px;
+}
+
+.bd-search-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 7px;
+    padding: 5px 10px;
+    flex: 1;
+    min-width: 100px;
+    max-width: 200px;
     transition: border-color 0.15s;
-    box-sizing: border-box;
 }
 
-.bcd-search:focus {
-    border-color: var(--SmartThemeQuoteColor, #e87);
+.bd-search-wrap:focus-within {
+    border-color: rgba(123, 158, 232, 0.5);
 }
 
-.bcd-search::placeholder {
-    color: var(--SmartThemeBodyColor, #777);
-    opacity: 0.55;
+.bd-search-wrap i {
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 0.8em;
+    flex-shrink: 0;
 }
 
-/* ── Progress bar ────────────────────────────────────────────────────────── */
-.bcd-progress-wrap {
+.bd-search {
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--SmartThemeBodyColor, #ddd);
+    font-size: 0.83em;
+    width: 100%;
+    min-width: 0;
+}
+
+.bd-search::placeholder {
+    color: rgba(255, 255, 255, 0.25);
+}
+
+/* ─── 自定义 Checkbox ────────────────────────────────────────────────────────── */
+.bd-checkbox-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+.bd-checkbox-box {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 17px;
+    height: 17px;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.04);
+    flex-shrink: 0;
+    transition: all 0.15s;
+    cursor: pointer;
+}
+
+.bd-checkbox-input:checked + .bd-checkbox-box,
+.bd-checkbox-input:indeterminate + .bd-checkbox-box {
+    background: #5c8ce8;
+    border-color: #5c8ce8;
+}
+
+.bd-checkbox-input:checked + .bd-checkbox-box::after {
+    content: '';
+    width: 9px;
+    height: 5px;
+    border-left: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+    transform: rotate(-45deg) translateY(-1px);
+    display: block;
+}
+
+.bd-checkbox-input:indeterminate + .bd-checkbox-box::after {
+    content: '';
+    width: 8px;
+    height: 2px;
+    background: #fff;
+    border-radius: 1px;
+    display: block;
+}
+
+/* ─── 列表区 ─────────────────────────────────────────────────────────────────── */
+.bd-list-wrap {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.bd-list {
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
+    padding: 8px;
+    display: none;
+    flex-direction: column;
+    gap: 3px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+.bd-list.active {
+    display: flex;
+}
+
+.bd-list::-webkit-scrollbar {
+    width: 5px;
+}
+
+.bd-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+}
+
+/* ─── 列表项 ─────────────────────────────────────────────────────────────────── */
+.bd-item {
+    border-radius: 8px;
+    transition: background 0.12s;
+    flex-shrink: 0;
+}
+
+.bd-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.bd-item.selected {
+    background: rgba(92, 140, 232, 0.1);
+}
+
+.bd-item-label {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 6px 16px;
-    flex-shrink: 0;
-    background: rgba(0,0,0,0.15);
-}
-
-.bcd-progress-track {
-    flex: 1;
-    height: 6px;
-    background: var(--SmartThemeBorderColor, #444);
-    border-radius: 3px;
-    overflow: hidden;
-}
-
-.bcd-progress-bar {
-    height: 100%;
-    background: var(--SmartThemeQuoteColor, #e87);
-    border-radius: 3px;
-    transition: width 0.2s ease;
-    width: 0%;
-}
-
-.bcd-progress-text {
-    font-size: 0.82rem;
-    color: var(--SmartThemeBodyColor, #aaa);
-    white-space: nowrap;
-    min-width: 48px;
-    text-align: right;
-}
-
-/* ── Item list ───────────────────────────────────────────────────────────── */
-.bcd-item-list {
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    padding: 6px 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-}
-
-.bcd-item-list::-webkit-scrollbar { width: 4px; }
-.bcd-item-list::-webkit-scrollbar-thumb {
-    background: var(--SmartThemeBorderColor, #555);
-    border-radius: 2px;
-}
-
-.bcd-item-row {
-    border-radius: 10px;
-    overflow: hidden;
-    transition: background 0.1s;
-}
-
-.bcd-item-row:active {
-    background: rgba(255,255,255,0.05);
-}
-
-.bcd-item-row.bcd-selected {
-    background: rgba(232, 136, 100, 0.13);
-    outline: 1px solid rgba(232, 136, 100, 0.32);
-}
-
-.bcd-item-row.bcd-active-char {
-    outline: 1px solid rgba(100, 210, 110, 0.45);
-}
-
-.bcd-row-inner {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
+    padding: 8px 10px;
     cursor: pointer;
     width: 100%;
     box-sizing: border-box;
-    min-height: 62px;
-    -webkit-tap-highlight-color: transparent;
+    user-select: none;
 }
 
-.bcd-checkbox {
-    width: 20px;
-    height: 20px;
+.bd-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 7px;
+    overflow: hidden;
     flex-shrink: 0;
-    cursor: pointer;
-    accent-color: var(--SmartThemeQuoteColor, #e87);
-}
-
-.bcd-avatar {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    object-fit: cover;
-    flex-shrink: 0;
-    border: 2px solid var(--SmartThemeBorderColor, #555);
-    background: #222;
-}
-
-.bcd-wb-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.07);
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
-    background: var(--SmartThemeBorderColor, #333);
-    color: var(--SmartThemeQuoteColor, #e87);
-    font-size: 1.3rem;
 }
 
-.bcd-info {
+.bd-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.bd-avatar-icon {
+    font-size: 1.2em;
+    color: #7b9ee8;
+}
+
+.bd-item-info {
     flex: 1;
     min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
 }
 
-.bcd-name {
-    font-size: 0.96rem;
-    font-weight: 600;
-    color: var(--SmartThemeEmColor, #e0e0e0);
+.bd-item-name {
+    font-size: 0.88em;
+    color: var(--SmartThemeBodyColor, #ddd);
+    font-weight: 500;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.bcd-world-tag {
-    font-size: 0.77rem;
-    color: var(--SmartThemeBodyColor, #aaa);
+.bd-item-sub {
+    font-size: 0.74em;
+    color: rgba(255, 255, 255, 0.38);
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     display: flex;
     align-items: center;
     gap: 4px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
-.bcd-world-tag i {
-    color: var(--SmartThemeQuoteColor, #e87);
-    font-size: 0.72rem;
-    flex-shrink: 0;
+.bd-item-sub i {
+    font-size: 0.85em;
+    color: #7b9ee8;
+    opacity: 0.7;
 }
 
-.bcd-empty {
-    text-align: center;
-    padding: 60px 20px;
-    color: var(--SmartThemeBodyColor, #777);
-    font-size: 0.95rem;
-    opacity: 0.55;
-}
-
-/* ── Footer ──────────────────────────────────────────────────────────────── */
-.bcd-footer {
-    display: flex;
-    justify-content: stretch;
-    padding: 10px 16px 12px;
-    border-top: 1px solid var(--SmartThemeBorderColor, #3a3a3e);
-    flex-shrink: 0;
-}
-
-/* ── Buttons ─────────────────────────────────────────────────────────────── */
-.bcd-btn {
-    background: var(--SmartThemeBlurTintColor, #3a3a40);
-    border: 1px solid var(--SmartThemeBorderColor, #555);
-    color: var(--SmartThemeBodyColor, #ccc);
-    padding: 0 20px;
-    border-radius: 10px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
+/* ─── 空状态 & 加载 ──────────────────────────────────────────────────────────── */
+.bd-empty-hint,
+.bd-spinner {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    height: 52px;
-    transition: opacity 0.15s, background 0.15s;
-    -webkit-tap-highlight-color: transparent;
+    padding: 40px 20px;
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 0.85em;
+    width: 100%;
 }
 
-.bcd-btn:active:not(:disabled) { opacity: 0.7; }
+/* ─── 底部操作栏 ─────────────────────────────────────────────────────────────── */
+.bd-footer {
+    display: flex;
+    gap: 10px;
+    padding: 14px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+    justify-content: flex-end;
+}
 
-.bcd-btn:disabled {
-    opacity: 0.35;
+/* ─── 通用按钮 ───────────────────────────────────────────────────────────────── */
+.bd-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 0.87em;
+    font-weight: 500;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.bd-btn:disabled {
+    opacity: 0.38;
     cursor: not-allowed;
 }
 
-.bcd-btn-danger {
-    background: rgba(200, 50, 50, 0.22);
-    border-color: rgba(200, 50, 50, 0.5);
-    color: #ff8888;
+.bd-btn-danger {
+    background: linear-gradient(135deg, #c0392b, #e74c3c);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(231, 76, 60, 0.35);
 }
 
-.bcd-btn-delete {
-    flex: 1;
+.bd-btn-danger:not(:disabled):hover {
+    background: linear-gradient(135deg, #e74c3c, #ff5c5c);
+    box-shadow: 0 4px 14px rgba(231, 76, 60, 0.5);
+    transform: translateY(-1px);
 }
 
-/* ── Confirm modal ───────────────────────────────────────────────────────── */
-.bcd-confirm-modal {
+.bd-btn-secondary {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--SmartThemeBodyColor, #ddd);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.bd-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.13);
+}
+
+/* ─── 确认弹窗遮罩 ───────────────────────────────────────────────────────────── */
+.bd-confirm-overlay {
     position: fixed;
     inset: 0;
     z-index: 10000;
-    background: rgba(0,0,0,0.65);
+    background: rgba(0, 0, 0, 0.6);
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: center;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
+    padding: clamp(16px, 5vw, 48px);
+    box-sizing: border-box;
 }
 
-.bcd-confirm-box {
-    background: var(--SmartThemeBlurTintColor, #2c2c32);
-    border: 1px solid var(--SmartThemeBorderColor, #555);
-    border-radius: 18px 18px 0 0;
-    padding: 24px 20px;
-    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
-    width: 100%;
-    max-width: 100vw;
-    box-shadow: 0 -6px 40px rgba(0,0,0,0.6);
+/* ─── 确认弹窗盒子 ───────────────────────────────────────────────────────────── */
+.bd-confirm-box {
+    background: color-mix(in srgb, var(--SmartThemeBodyColor, #2a2a3a) 5%, #1c1c2c 95%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8);
+    width: min(420px, 100%);
+    padding: 28px 24px 22px;
     display: flex;
     flex-direction: column;
     gap: 14px;
-    animation: bcd-slide-up 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+    animation: bdSlideIn 0.2s cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
-.bcd-confirm-box::before {
-    content: '';
-    display: block;
-    width: 40px;
-    height: 4px;
-    background: var(--SmartThemeBorderColor, #555);
-    border-radius: 2px;
-    margin: -10px auto 4px;
-}
-
-.bcd-confirm-icon {
+.bd-confirm-icon {
+    font-size: 2em;
+    color: #e8a23a;
     text-align: center;
-    font-size: 2.4rem;
-    color: #f0a060;
 }
 
-.bcd-confirm-msg {
+.bd-confirm-title {
+    font-size: 1em;
+    font-weight: 600;
+    color: var(--SmartThemeBodyColor, #e0e0e0);
     text-align: center;
-    font-size: 0.97rem;
-    color: var(--SmartThemeBodyColor, #ccc);
-    line-height: 1.55;
-    margin: 0;
 }
 
-.bcd-confirm-wb-section {
-    background: rgba(0,0,0,0.2);
-    border: 1px solid var(--SmartThemeBorderColor, #444);
-    border-radius: 10px;
+.bd-confirm-body {
+    font-size: 0.87em;
+    color: rgba(255, 255, 255, 0.65);
+    text-align: center;
+    line-height: 1.5;
+}
+
+.bd-confirm-body strong {
+    color: #ff8a80;
+}
+
+/* ─── 世界书删除选项 ─────────────────────────────────────────────────────────── */
+.bd-confirm-worldbook {
+    background: rgba(123, 158, 232, 0.07);
+    border: 1px solid rgba(123, 158, 232, 0.2);
+    border-radius: 9px;
     padding: 12px 14px;
-}
-
-.bcd-confirm-wb-title {
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: var(--SmartThemeEmColor, #ddd);
-    margin: 0 0 10px;
-}
-
-.bcd-confirm-wb-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    max-height: 160px;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    gap: 10px;
 }
 
-.bcd-wb-check {
+.bd-confirm-worldbook-label {
+    font-size: 0.84em;
+    color: rgba(255, 255, 255, 0.55);
     display: flex;
     align-items: center;
-    gap: 10px;
-    font-size: 0.9rem;
-    color: var(--SmartThemeBodyColor, #bbb);
+    gap: 7px;
+}
+
+.bd-confirm-worldbook-label i {
+    color: #7b9ee8;
+}
+
+.bd-confirm-toggle-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.bd-confirm-radio {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     cursor: pointer;
-    min-height: 38px;
-    -webkit-tap-highlight-color: transparent;
+    font-size: 0.84em;
+    color: var(--SmartThemeBodyColor, #ddd);
+    user-select: none;
 }
 
-.bcd-wb-check input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
-    accent-color: var(--SmartThemeQuoteColor, #e87);
+.bd-radio-box {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.04);
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
+    transition: all 0.15s;
 }
 
-.bcd-confirm-actions {
+.bd-confirm-radio input[type=radio] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.bd-confirm-radio input[type=radio]:checked ~ .bd-radio-box,
+.bd-confirm-radio:has(input:checked) .bd-radio-box {
+    border-color: #5c8ce8;
+    background: #5c8ce8;
+}
+
+/* Reorder so radio-box is right after input visually */
+.bd-confirm-radio {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+/* Target radio box after input using sibling selector */
+.bd-confirm-radio input[type=radio] + .bd-radio-box {
+    order: -1;
+}
+
+/* Fallback for browsers not supporting :has */
+@supports not (selector(:has(*))) {
+    .bd-confirm-radio input[type=radio]:checked + .bd-radio-box {
+        border-color: #5c8ce8;
+        background: #5c8ce8;
+    }
+}
+
+.bd-confirm-actions {
     display: flex;
     gap: 10px;
-    margin-top: 4px;
+    justify-content: flex-end;
+    padding-top: 4px;
 }
 
-.bcd-confirm-actions .bcd-btn {
-    flex: 1;
-    height: 52px;
+/* ─── 手机端适配 ─────────────────────────────────────────────────────────────── */
+@media screen and (max-width: 540px) {
+    .bulk-delete-panel {
+        max-height: calc(100vh - clamp(24px, 8vw, 48px) * 2);
+        border-radius: 12px;
+    }
+
+    .bd-toolbar {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .bd-search-wrap {
+        max-width: 100%;
+        flex-basis: 100%;
+        order: 3;
+    }
+
+    .bd-footer {
+        flex-direction: column-reverse;
+    }
+
+    .bd-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 11px 18px;
+    }
+
+    .bd-confirm-actions {
+        flex-direction: column-reverse;
+    }
+
+    .bd-confirm-actions .bd-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .bd-header {
+        padding: 14px 16px 12px;
+    }
+
+    .bd-tabs {
+        padding: 0 10px;
+    }
+
+    .bd-tab {
+        padding: 10px 10px 8px;
+        font-size: 0.84em;
+    }
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   Desktop tweaks  (screen width >= 600px)
-   Base styles already handle centering; here we only tweak sizing.
-   ═══════════════════════════════════════════════════════════════════ */
-@media (min-width: 600px) {
-    .bcd-overlay {
-        padding: 32px;
+/* ─── 极窄屏幕（折叠屏等）─────────────────────────────────────────────────────── */
+@media screen and (max-width: 340px) {
+    .bd-tab span:not(.bd-tab-count) {
+        display: none;
     }
 
-    .bcd-panel {
-        max-height: 80vh;
+    .bd-tab {
+        justify-content: center;
+        flex: 1;
     }
-
-    .bcd-close-btn:hover {
-        background: rgba(255,80,80,0.15);
-        color: #ff6b6b;
-    }
-}
-
-@keyframes bcd-zoom-in {
-    from { opacity: 0; transform: scale(0.95); }
-    to   { opacity: 1; transform: scale(1); }
 }
