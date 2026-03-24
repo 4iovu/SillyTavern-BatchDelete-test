@@ -1,235 +1,185 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Bulk Character Deleter — style.css
-   Mobile-first · 全部间距用百分比，无固定像素边距
-   Compatible with SillyTavern CSS variable system
+   Bulk Character Deleter — style.css  v1.1
+   Menu entry: 零自定义样式，完全复用 ST 原生 .menu_button.menu_button_icon
+   Panel: 居中弹出，四边留 margin，可拖拽，适配移动端
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Menu entry ──────────────────────────────────────────────────────────── */
-#bcd-menu-entry {
-    cursor: pointer;
-}
+/* ────────────────────────────────────────────────────────────────────────────
+   菜单入口按钮 — 不写任何额外样式，让 ST 原生类完全接管
+   #bcd-menu-btn 只需 .menu_button.menu_button_icon 就够了
+   ──────────────────────────────────────────────────────────────────────────── */
 
-#bcd-menu-entry a {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--SmartThemeBodyColor, #ccc);
-    text-decoration: none;
-    padding: 8px 10px;
-    border-radius: 4px;
-    transition: background 0.15s, color 0.15s;
-    min-height: 44px;
-}
-
-#bcd-menu-entry a:hover,
-#bcd-menu-entry a:active {
-    background: var(--SmartThemeBlurTintColor, rgba(255,255,255,0.07));
-    color: var(--SmartThemeEmColor, #fff);
-}
-
-#bcd-menu-entry a i {
-    width: 18px;
-    text-align: center;
-    color: var(--SmartThemeQuoteColor, #e87);
-    font-size: 1rem;
-}
-
-div#bcd-menu-entry {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    padding: 8px 10px;
-    min-height: 44px;
-    color: var(--SmartThemeBodyColor, #ccc);
-    border-radius: 4px;
-    transition: background 0.15s;
-    -webkit-tap-highlight-color: transparent;
-}
-
-div#bcd-menu-entry i {
-    color: var(--SmartThemeQuoteColor, #e87);
-}
-
-/* ── Overlay ─────────────────────────────────────────────────────────────── */
+/* ────────────────────────────────────────────────────────────────────────────
+   Overlay 背景遮罩
+   ──────────────────────────────────────────────────────────────────────────── */
 .bcd-overlay {
     position: fixed;
     inset: 0;
-    z-index: 9999;
-    background: rgba(0, 0, 0, 0.65);
+    z-index: 9990;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    /* 居中 panel */
     display: flex;
     align-items: center;
     justify-content: center;
-    backdrop-filter: blur(3px);
-    -webkit-backdrop-filter: blur(3px);
-    animation: bcd-fade-in 0.18s ease;
-    /*
-     * 四周留白全部用百分比：
-     *   手机竖屏  → 左右各 4vw，上下各 4vh
-     *   同时叠加系统安全区（刘海 / Home Bar），取两者较大值
-     */
-    padding-top:    max(4vh, env(safe-area-inset-top,    0px));
-    padding-right:  max(4vw, env(safe-area-inset-right,  0px));
-    padding-bottom: max(4vh, env(safe-area-inset-bottom, 0px));
-    padding-left:   max(4vw, env(safe-area-inset-left,   0px));
+    padding: 16px;          /* 四边安全距离 */
     box-sizing: border-box;
 }
 
-@keyframes bcd-fade-in {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-}
-
-/* ── Panel — centered floating card (mobile & desktop) ──────────────────── */
+/* ────────────────────────────────────────────────────────────────────────────
+   主面板
+   ──────────────────────────────────────────────────────────────────────────── */
 .bcd-panel {
-    background: var(--SmartThemeBlurTintColor, #232327);
-    border: 1px solid var(--SmartThemeBorderColor, #444);
-    border-radius: 16px;
-    box-shadow: 0 8px 48px rgba(0,0,0,0.65);
-    /*
-     * 撑满 overlay 已留好百分比间距的内容区。
-     * width/height = 100% 意味着面板本身占满 overlay 内容区，
-     * 真正的"四边距离屏幕"由 overlay 的 padding 控制（4vw / 4vh）。
-     * max-width / max-height 限制桌面端不要太宽/太高。
-     */
-    width: 100%;
-    max-width: 92vw;          /* 桌面上不超过视口宽度的 92%  */
-    height: 100%;
-    max-height: 92vh;         /* 同理限制高度                */
+    /* 颜色完全跟随 ST 主题变量，不写死任何颜色 */
+    background: var(--SmartThemeBlurTintColor);
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 10px;
+    box-shadow: 0 6px 32px rgba(0, 0, 0, 0.5);
+    color: var(--SmartThemeBodyColor);
+    font-family: var(--mainFontFamily, inherit);
+
+    /* 居中显示时的尺寸 */
+    width: 520px;
+    max-width: 100%;         /* overlay 的 padding 已经留边距 */
+    max-height: calc(100vh - 32px);
+
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    color: var(--SmartThemeBodyColor, #ccc);
-    font-family: var(--mainFontFamily, inherit);
-    animation: bcd-zoom-in 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+
+    /* 拖拽时 JS 会把 left/top 设为绝对值并清除 margin/transform */
+    position: relative;
 }
 
-/* 居中布局不需要拖动把手 */
-.bcd-panel::before { display: none; }
-
-/* ── Header ──────────────────────────────────────────────────────────────── */
+/* ────────────────────────────────────────────────────────────────────────────
+   Header（拖拽手柄）
+   ──────────────────────────────────────────────────────────────────────────── */
 .bcd-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 16px;
-    border-bottom: 1px solid var(--SmartThemeBorderColor, #3a3a3e);
+    padding: 10px 14px 8px;
+    border-bottom: 1px solid var(--SmartThemeBorderColor);
     flex-shrink: 0;
+    user-select: none;
+    cursor: grab;
+}
+
+.bcd-header:active {
+    cursor: grabbing;
 }
 
 .bcd-title {
-    font-size: 1.05rem;
-    font-weight: 700;
     display: flex;
     align-items: center;
-    gap: 8px;
-    color: var(--SmartThemeEmColor, #eee);
+    gap: 7px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--SmartThemeEmColor);
 }
 
-.bcd-title i {
-    color: var(--SmartThemeQuoteColor, #e87);
+.bcd-grip {
+    color: var(--SmartThemeBodyColor);
+    opacity: 0.4;
+    font-size: 0.85rem;
 }
 
-.bcd-close-btn {
+/* 关闭按钮复用 ST 风格，不设固定颜色 */
+.bcd-icon-btn {
     background: none;
     border: none;
-    color: var(--SmartThemeBodyColor, #aaa);
+    color: var(--SmartThemeBodyColor);
+    font-size: 1.1rem;
     cursor: pointer;
-    width: 44px;
-    height: 44px;
-    font-size: 1.3rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
+    padding: 2px 6px;
+    border-radius: 5px;
+    line-height: 1;
     transition: background 0.15s, color 0.15s;
-    -webkit-tap-highlight-color: transparent;
-    flex-shrink: 0;
 }
 
-.bcd-close-btn:active {
-    background: rgba(255,80,80,0.18);
-    color: #ff6b6b;
+.bcd-icon-btn:hover {
+    background: rgba(255, 80, 80, 0.15);
+    color: var(--SmartThemeEmColor);
 }
 
-/* ── Tabs ────────────────────────────────────────────────────────────────── */
+/* ────────────────────────────────────────────────────────────────────────────
+   标签页
+   ──────────────────────────────────────────────────────────────────────────── */
 .bcd-tabs {
     display: flex;
+    gap: 0;
+    padding: 8px 14px 0;
     flex-shrink: 0;
-    border-bottom: 1px solid var(--SmartThemeBorderColor, #3a3a3e);
 }
 
 .bcd-tab {
-    flex: 1;
     background: none;
     border: none;
-    border-bottom: 3px solid transparent;
-    color: var(--SmartThemeBodyColor, #aaa);
-    padding: 12px 8px;
-    font-size: 0.95rem;
+    border-bottom: 2px solid transparent;
+    color: var(--SmartThemeBodyColor);
+    padding: 5px 14px;
+    font-size: 0.88rem;
     font-weight: 600;
     cursor: pointer;
+    border-radius: 6px 6px 0 0;
+    transition: color 0.12s, border-color 0.12s, background 0.12s;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 7px;
-    min-height: 50px;
-    transition: color 0.15s, border-color 0.15s;
-    -webkit-tap-highlight-color: transparent;
+    gap: 5px;
 }
 
-.bcd-tab:active {
-    background: rgba(255,255,255,0.04);
+.bcd-tab:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--SmartThemeEmColor);
 }
 
-.bcd-tab.bcd-tab-active {
-    color: var(--SmartThemeEmColor, #fff);
+.bcd-tab.bcd-tab--active {
+    color: var(--SmartThemeEmColor);
     border-bottom-color: var(--SmartThemeQuoteColor, #e87);
 }
 
-/* ── Toolbar ─────────────────────────────────────────────────────────────── */
+/* ────────────────────────────────────────────────────────────────────────────
+   工具栏（全选 + 搜索）
+   ──────────────────────────────────────────────────────────────────────────── */
 .bcd-toolbar {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 16px;
+    padding: 8px 14px;
     flex-shrink: 0;
+    border-bottom: 1px solid var(--SmartThemeBorderColor);
 }
 
 .bcd-select-all-label {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 0.93rem;
+    gap: 5px;
+    font-size: 0.85rem;
     cursor: pointer;
-    user-select: none;
-    color: var(--SmartThemeBodyColor, #bbb);
     white-space: nowrap;
-    min-height: 44px;
-    -webkit-tap-highlight-color: transparent;
+    color: var(--SmartThemeBodyColor);
 }
 
 .bcd-select-all-label input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
     cursor: pointer;
     accent-color: var(--SmartThemeQuoteColor, #e87);
-    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
 }
 
-/* font-size:16px prevents iOS auto-zoom on focus */
+/* 搜索框：跟 ST 的 .text_pole 一致的感觉，继承背景/边框颜色 */
 .bcd-search {
     flex: 1;
-    background: rgba(0,0,0,0.25);
-    border: 1px solid var(--SmartThemeBorderColor, #555);
-    border-radius: 20px;
-    color: var(--SmartThemeBodyColor, #ccc);
-    font-size: 16px;
-    padding: 8px 14px;
+    background: var(--SmartThemeBlurTintColor);
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 5px;
+    color: var(--SmartThemeBodyColor);
+    font-size: 0.85rem;
+    padding: 4px 8px;
     outline: none;
-    min-height: 42px;
-    transition: border-color 0.15s;
-    box-sizing: border-box;
+    transition: border-color 0.12s;
+    min-width: 0;
 }
 
 .bcd-search:focus {
@@ -237,123 +187,117 @@ div#bcd-menu-entry i {
 }
 
 .bcd-search::placeholder {
-    color: var(--SmartThemeBodyColor, #777);
-    opacity: 0.55;
+    opacity: 0.45;
 }
 
-/* ── Progress bar ────────────────────────────────────────────────────────── */
-.bcd-progress-wrap {
+/* ────────────────────────────────────────────────────────────────────────────
+   进度条
+   ──────────────────────────────────────────────────────────────────────────── */
+.bcd-progress {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 6px 16px;
+    gap: 8px;
+    padding: 5px 14px;
     flex-shrink: 0;
-    background: rgba(0,0,0,0.15);
 }
 
-.bcd-progress-track {
+.bcd-prog-track {
     flex: 1;
-    height: 6px;
-    background: var(--SmartThemeBorderColor, #444);
+    height: 5px;
+    background: var(--SmartThemeBorderColor);
     border-radius: 3px;
     overflow: hidden;
 }
 
-.bcd-progress-bar {
+.bcd-prog-bar {
     height: 100%;
     background: var(--SmartThemeQuoteColor, #e87);
     border-radius: 3px;
-    transition: width 0.2s ease;
+    transition: width 0.18s ease;
     width: 0%;
 }
 
-.bcd-progress-text {
-    font-size: 0.82rem;
-    color: var(--SmartThemeBodyColor, #aaa);
+.bcd-prog-txt {
+    font-size: 0.78rem;
+    color: var(--SmartThemeBodyColor);
+    opacity: 0.6;
     white-space: nowrap;
-    min-width: 48px;
+    min-width: 44px;
     text-align: right;
 }
 
-/* ── Item list ───────────────────────────────────────────────────────────── */
-.bcd-item-list {
+/* ────────────────────────────────────────────────────────────────────────────
+   列表
+   ──────────────────────────────────────────────────────────────────────────── */
+.bcd-list {
     flex: 1;
     overflow-y: auto;
-    overflow-x: hidden;
-    padding: 6px 10px;
+    padding: 4px 8px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
+    gap: 2px;
+    min-height: 0;
 }
 
-.bcd-item-list::-webkit-scrollbar { width: 4px; }
-.bcd-item-list::-webkit-scrollbar-thumb {
-    background: var(--SmartThemeBorderColor, #555);
-    border-radius: 2px;
+.bcd-list::-webkit-scrollbar { width: 5px; }
+.bcd-list::-webkit-scrollbar-track { background: transparent; }
+.bcd-list::-webkit-scrollbar-thumb {
+    background: var(--SmartThemeBorderColor);
+    border-radius: 3px;
 }
 
-.bcd-item-row {
-    border-radius: 10px;
-    overflow: hidden;
+.bcd-row {
+    border-radius: 6px;
     transition: background 0.1s;
 }
 
-.bcd-item-row:active {
-    background: rgba(255,255,255,0.05);
+.bcd-row:hover { background: rgba(255, 255, 255, 0.04); }
+
+.bcd-row.bcd-row--checked {
+    background: rgba(255, 255, 255, 0.07);
+    outline: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.bcd-item-row.bcd-selected {
-    background: rgba(232, 136, 100, 0.13);
-    outline: 1px solid rgba(232, 136, 100, 0.32);
-}
-
-.bcd-item-row.bcd-active-char {
-    outline: 1px solid rgba(100, 210, 110, 0.45);
-}
-
-.bcd-row-inner {
+.bcd-row-label {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
+    gap: 9px;
+    padding: 6px 8px;
     cursor: pointer;
     width: 100%;
     box-sizing: border-box;
-    min-height: 62px;
-    -webkit-tap-highlight-color: transparent;
 }
 
-.bcd-checkbox {
-    width: 20px;
-    height: 20px;
+.bcd-cb {
+    width: 14px;
+    height: 14px;
     flex-shrink: 0;
     cursor: pointer;
     accent-color: var(--SmartThemeQuoteColor, #e87);
 }
 
 .bcd-avatar {
-    width: 48px;
-    height: 48px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     object-fit: cover;
     flex-shrink: 0;
-    border: 2px solid var(--SmartThemeBorderColor, #555);
-    background: #222;
+    border: 1px solid var(--SmartThemeBorderColor);
+    background: rgba(0, 0, 0, 0.2);
 }
 
 .bcd-wb-icon {
-    width: 48px;
-    height: 48px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
-    background: var(--SmartThemeBorderColor, #333);
-    color: var(--SmartThemeQuoteColor, #e87);
-    font-size: 1.3rem;
+    font-size: 1rem;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--SmartThemeBorderColor);
+    color: var(--SmartThemeBodyColor);
 }
 
 .bcd-info {
@@ -361,228 +305,230 @@ div#bcd-menu-entry i {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
 }
 
 .bcd-name {
-    font-size: 0.96rem;
+    font-size: 0.9rem;
     font-weight: 600;
-    color: var(--SmartThemeEmColor, #e0e0e0);
+    color: var(--SmartThemeEmColor);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.bcd-world-tag {
-    font-size: 0.77rem;
-    color: var(--SmartThemeBodyColor, #aaa);
+.bcd-tag {
+    font-size: 0.73rem;
+    color: var(--SmartThemeBodyColor);
+    opacity: 0.6;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 3px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-.bcd-world-tag i {
-    color: var(--SmartThemeQuoteColor, #e87);
-    font-size: 0.72rem;
-    flex-shrink: 0;
 }
 
 .bcd-empty {
     text-align: center;
-    padding: 60px 20px;
-    color: var(--SmartThemeBodyColor, #777);
-    font-size: 0.95rem;
-    opacity: 0.55;
+    padding: 36px 0;
+    color: var(--SmartThemeBodyColor);
+    opacity: 0.4;
+    font-size: 0.9rem;
 }
 
-/* ── Footer ──────────────────────────────────────────────────────────────── */
+/* ────────────────────────────────────────────────────────────────────────────
+   Footer / 删除按钮
+   复用 ST 的 .menu_button 质感（边框 + hover），只加危险色调
+   ──────────────────────────────────────────────────────────────────────────── */
 .bcd-footer {
     display: flex;
-    justify-content: stretch;
-    padding: 10px 16px 12px;
-    border-top: 1px solid var(--SmartThemeBorderColor, #3a3a3e);
+    justify-content: flex-end;
+    padding: 8px 14px 10px;
+    border-top: 1px solid var(--SmartThemeBorderColor);
     flex-shrink: 0;
 }
 
-/* ── Buttons ─────────────────────────────────────────────────────────────── */
-.bcd-btn {
-    background: var(--SmartThemeBlurTintColor, #3a3a40);
-    border: 1px solid var(--SmartThemeBorderColor, #555);
-    color: var(--SmartThemeBodyColor, #ccc);
-    padding: 0 20px;
-    border-radius: 10px;
-    font-size: 1rem;
+.bcd-delete-btn {
+    /* 外观基础和 ST 的 menu_button 对齐 */
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 16px;
+    border-radius: 6px;
+    font-size: 0.88rem;
     font-weight: 600;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    height: 52px;
-    transition: opacity 0.15s, background 0.15s;
-    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s, opacity 0.15s;
+
+    /* 危险色调 */
+    background: rgba(180, 40, 40, 0.18);
+    border: 1px solid rgba(180, 40, 40, 0.45);
+    color: #ff9090;
 }
 
-.bcd-btn:active:not(:disabled) { opacity: 0.7; }
+.bcd-delete-btn:hover:not(:disabled) {
+    background: rgba(180, 40, 40, 0.32);
+    border-color: rgba(200, 60, 60, 0.7);
+}
 
-.bcd-btn:disabled {
+.bcd-delete-btn:disabled {
     opacity: 0.35;
     cursor: not-allowed;
 }
 
-.bcd-btn-danger {
-    background: rgba(200, 50, 50, 0.22);
-    border-color: rgba(200, 50, 50, 0.5);
-    color: #ff8888;
-}
-
-.bcd-btn-delete {
-    flex: 1;
-}
-
-/* ── Confirm modal ───────────────────────────────────────────────────────── */
-.bcd-confirm-modal {
+/* ────────────────────────────────────────────────────────────────────────────
+   确认弹窗（在面板之上）
+   ──────────────────────────────────────────────────────────────────────────── */
+.bcd-confirm-overlay {
     position: fixed;
     inset: 0;
-    z-index: 10000;
-    background: rgba(0,0,0,0.65);
+    z-index: 9995;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: center;
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
+    padding: 16px;
+    box-sizing: border-box;
 }
 
 .bcd-confirm-box {
-    background: var(--SmartThemeBlurTintColor, #2c2c32);
-    border: 1px solid var(--SmartThemeBorderColor, #555);
-    border-radius: 18px 18px 0 0;
-    padding: 24px 20px;
-    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
-    width: 100%;
-    max-width: 100vw;
-    box-shadow: 0 -6px 40px rgba(0,0,0,0.6);
+    background: var(--SmartThemeBlurTintColor);
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 10px;
+    padding: 24px 22px 18px;
+    width: 380px;
+    max-width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    animation: bcd-slide-up 0.2s cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-.bcd-confirm-box::before {
-    content: '';
-    display: block;
-    width: 40px;
-    height: 4px;
-    background: var(--SmartThemeBorderColor, #555);
-    border-radius: 2px;
-    margin: -10px auto 4px;
+    gap: 12px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
 }
 
 .bcd-confirm-icon {
     text-align: center;
-    font-size: 2.4rem;
+    font-size: 2rem;
     color: #f0a060;
 }
 
 .bcd-confirm-msg {
     text-align: center;
-    font-size: 0.97rem;
-    color: var(--SmartThemeBodyColor, #ccc);
-    line-height: 1.55;
+    font-size: 0.9rem;
+    color: var(--SmartThemeBodyColor);
+    line-height: 1.5;
     margin: 0;
 }
 
-.bcd-confirm-wb-section {
-    background: rgba(0,0,0,0.2);
-    border: 1px solid var(--SmartThemeBorderColor, #444);
-    border-radius: 10px;
-    padding: 12px 14px;
-}
-
 .bcd-confirm-wb-title {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 700;
-    color: var(--SmartThemeEmColor, #ddd);
-    margin: 0 0 10px;
+    color: var(--SmartThemeEmColor);
+    margin: 0 0 6px;
 }
 
 .bcd-confirm-wb-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    max-height: 160px;
+    gap: 5px;
+    max-height: 130px;
     overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    padding: 8px 10px;
+    background: rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 6px;
 }
 
-.bcd-wb-check {
+.bcd-wbcheck {
     display: flex;
     align-items: center;
-    gap: 10px;
-    font-size: 0.9rem;
-    color: var(--SmartThemeBodyColor, #bbb);
+    gap: 7px;
+    font-size: 0.85rem;
+    color: var(--SmartThemeBodyColor);
     cursor: pointer;
-    min-height: 38px;
-    -webkit-tap-highlight-color: transparent;
 }
 
-.bcd-wb-check input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
-    accent-color: var(--SmartThemeQuoteColor, #e87);
-    flex-shrink: 0;
-}
+.bcd-wbcheck input { accent-color: var(--SmartThemeQuoteColor, #e87); cursor: pointer; }
 
-.bcd-confirm-actions {
+.bcd-confirm-btns {
     display: flex;
-    gap: 10px;
-    margin-top: 4px;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 2px;
 }
 
-.bcd-confirm-actions .bcd-btn {
-    flex: 1;
-    height: 52px;
+/* 次要按钮：跟 ST menu_button 一致 */
+.bcd-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 14px;
+    border-radius: 6px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--SmartThemeBorderColor);
+    color: var(--SmartThemeBodyColor);
+    transition: background 0.12s;
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   桌面端优化  (screen width >= 600px)
-   ─ overlay 的四边留白增大到 5vw / 5vh
-   ─ 面板宽度限制收窄，不要占满整个屏幕
-   ═══════════════════════════════════════════════════════════════════ */
-@media (min-width: 600px) {
+.bcd-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--SmartThemeEmColor);
+}
+
+/* 危险确认按钮 */
+.bcd-btn-danger-confirm {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 14px;
+    border-radius: 6px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    background: rgba(180, 40, 40, 0.22);
+    border: 1px solid rgba(180, 40, 40, 0.5);
+    color: #ff9090;
+    transition: background 0.12s;
+}
+
+.bcd-btn-danger-confirm:hover {
+    background: rgba(180, 40, 40, 0.38);
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   移动端适配
+   ──────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 560px) {
     .bcd-overlay {
-        padding-top:    max(5vh, env(safe-area-inset-top,    0px));
-        padding-right:  max(5vw, env(safe-area-inset-right,  0px));
-        padding-bottom: max(5vh, env(safe-area-inset-bottom, 0px));
-        padding-left:   max(5vw, env(safe-area-inset-left,   0px));
+        padding: 12px;   /* 四边距离屏幕边缘 12px */
+        align-items: center;
     }
 
     .bcd-panel {
-        /* 桌面宽屏：最宽 560px 或 60vw，取较小值；高度最多 80vh */
-        max-width:  min(560px, 90vw);
-        max-height: 80vh;
+        width: 100%;
+        max-height: calc(100vh - 24px);
     }
 
-    .bcd-close-btn:hover {
-        background: rgba(255,80,80,0.15);
-        color: #ff6b6b;
+    .bcd-confirm-box {
+        width: 100%;
     }
 
-    .bcd-tab:hover {
-        background: rgba(255,255,255,0.04);
-        color: var(--SmartThemeEmColor, #ddd);
+    /* 手机上面板拖拽后不超出安全区 */
+    .bcd-header {
+        padding: 12px 12px 10px;
+        /* 增大触摸区域 */
+        min-height: 44px;
     }
-}
 
-@keyframes bcd-zoom-in {
-    from { opacity: 0; transform: scale(0.95); }
-    to   { opacity: 1; transform: scale(1); }
-}
+    .bcd-row-label {
+        padding: 8px 6px;
+    }
 
-@keyframes bcd-slide-up {
-    from { opacity: 0; transform: translateY(30%); }
-    to   { opacity: 1; transform: translateY(0); }
+    .bcd-avatar,
+    .bcd-wb-icon {
+        width: 36px;
+        height: 36px;
+    }
 }
