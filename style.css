@@ -502,13 +502,16 @@
    ──────────────────────────────────────────────────────────────────────────── */
 @media (max-width: 560px) {
     .bcd-overlay {
-        padding: 12px;   /* 四边距离屏幕边缘 12px */
+        /* 上边 60px（状态栏+ST顶栏）/ 下边 80px（ST底部导航栏） */
+        /* 左右 12px 留边距，面板不贴边                            */
+        padding: 60px 12px 80px;
         align-items: center;
     }
 
     .bcd-panel {
         width: 100%;
-        max-height: calc(100vh - 24px);
+        /* 减去上下 padding 后的剩余高度，面板不会撑到顶部 */
+        max-height: calc(100vh - 140px);
     }
 
     .bcd-confirm-box {
