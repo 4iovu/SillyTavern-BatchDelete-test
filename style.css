@@ -19,11 +19,17 @@
     background: rgba(0, 0, 0, 0.55);
     backdrop-filter: blur(2px);
     -webkit-backdrop-filter: blur(2px);
-    /* 居中 panel */
     display: flex;
-    align-items: center;
+    align-items: center;          /* 垂直居中 */
     justify-content: center;
-    padding: 16px;          /* 四边安全距离 */
+    /* 用 dvh（动态视口高度）而不是 vh，自动排除手机浏览器地址栏/底栏 */
+    min-height: 100dvh;
+    /* 兼容不支持 dvh 的旧机型 */
+    min-height: 100vh;
+    min-height: 100dvh;
+    /* 四边安全距离，底部额外加 env(safe-area-inset-bottom) 避开 Home 条 */
+    padding: 16px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
     box-sizing: border-box;
 }
 
@@ -43,6 +49,7 @@
     width: 520px;
     max-width: 100%;         /* overlay 的 padding 已经留边距 */
     max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
 
     display: flex;
     flex-direction: column;
@@ -502,26 +509,33 @@
    ──────────────────────────────────────────────────────────────────────────── */
 @media (max-width: 560px) {
     .bcd-overlay {
-        /* 上边 60px（状态栏+ST顶栏）/ 下边 80px（ST底部导航栏） */
-        /* 左右 12px 留边距，面板不贴边                            */
-        padding: 60px 12px 80px;
+        /*
+         * 手机端上下 padding 说明：
+         *   padding-top  56px ≈ ST顶部工具栏高度，让面板不压在顶栏下面
+         *   padding-bottom 56px ≈ ST底部导航栏高度
+         *   左右 12px = 四边不贴屏幕边缘
+         *
+         * 想自己微调位置？
+         *   面板偏上 → 把第一个 56px 改小（例如 40px）
+         *   面板偏下 → 把第一个 56px 改大（例如 72px）
+         */
+        padding: 56px 12px 56px;
+        padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
         align-items: center;
     }
 
     .bcd-panel {
         width: 100%;
-        /* 减去上下 padding 后的剩余高度，面板不会撑到顶部 */
-        max-height: calc(100vh - 140px);
+        max-height: calc(100dvh - 112px);
+        max-height: calc(100vh  - 112px);
     }
 
     .bcd-confirm-box {
         width: 100%;
     }
 
-    /* 手机上面板拖拽后不超出安全区 */
     .bcd-header {
         padding: 12px 12px 10px;
-        /* 增大触摸区域 */
         min-height: 44px;
     }
 
