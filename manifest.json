@@ -1,5 +1,5 @@
 {
-    "display_name": "批量删除角色卡",
+    "display_name": "批量管理-测试-私",
     "version": "5.2.2",
     "js": "index.js",
     "css": "style.css",
