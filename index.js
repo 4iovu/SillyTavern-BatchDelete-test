@@ -1,18 +1,25 @@
 /**
  * Bulk Character & Worldbook Deleter
- * SillyTavern Extension — v1.1.0
+ * SillyTavern Extension — v1.2.0
+ *
+ * 修复：
+ * 1. 确认弹窗偏上 → 改用独立 overlay 居中
+ * 2. 世界书删不掉 → 修正 API 端点，改用 /deleteWI
+ * 3. 世界书界面单独多选删除，不再走角色卡的确认弹窗
+ * 4. 移除拖拽功能
+ * 5. 面板内点击不触发扩展页面关闭 → stopPropagation 阻止冒泡
  */
 
 import { getRequestHeaders, characters } from '../../../../script.js';
 import { getContext } from '../../../extensions.js';
-import { world_names } from '../../../../scripts/world-info.js';
+import { world_names, deleteWorldInfo } from '../../../../scripts/world-info.js';
 
-// ─── State ─────────────────────────────────────────────────────────────────
+// ─── State ──────────────────────────────────────────────────────────────────
 let currentTab = 'characters';
 let selectedCharacters = new Set();
 let selectedWorldbooks  = new Set();
 
-// ─── API helpers ────────────────────────────────────────────────────────────
+// ─── API ────────────────────────────────────────────────────────────────────
 
 async function apiDeleteCharacter(avatar) {
     const r = await fetch('/api/characters/delete', {
@@ -20,16 +27,31 @@ async function apiDeleteCharacter(avatar) {
         headers: getRequestHeaders(),
         body: JSON.stringify({ avatar_url: avatar, delete_chats: true }),
     });
-    if (!r.ok) throw new Error(`Failed: ${avatar}`);
+    if (!r.ok) throw new Error(`角色卡删除失败: ${avatar} (${r.status})`);
 }
 
+/**
+ * 世界书删除：优先用 ST 内置函数 deleteWorldInfo()，
+ * 如果不可用则回退到 HTTP 端点。
+ * ST 源码里世界书删除用的是 /api/worldinfo/delete，body: { name }
+ */
 async function apiDeleteWorldbook(name) {
+    // 方式一：调用 ST 内置函数（最可靠）
+    if (typeof deleteWorldInfo === 'function') {
+        try {
+            await deleteWorldInfo(name);
+            return;
+        } catch (e) {
+            console.warn('[BCD] deleteWorldInfo() failed, falling back to API:', e);
+        }
+    }
+    // 方式二：直接调用 HTTP 端点
     const r = await fetch('/api/worldinfo/delete', {
         method: 'POST',
         headers: getRequestHeaders(),
         body: JSON.stringify({ name }),
     });
-    if (!r.ok) throw new Error(`Failed: ${name}`);
+    if (!r.ok) throw new Error(`世界书删除失败: ${name} (${r.status})`);
 }
 
 function getCharacterWorlds(char) {
@@ -39,7 +61,7 @@ function getCharacterWorlds(char) {
     return [...w].filter(Boolean);
 }
 
-// ─── Render ─────────────────────────────────────────────────────────────────
+// ─── Render ──────────────────────────────────────────────────────────────────
 
 function renderCharacterList() {
     const ctx   = getContext();
@@ -55,18 +77,17 @@ function renderCharacterList() {
     }
 
     chars.forEach(char => {
-        const avatar  = char.avatar;
-        const name    = char.name || avatar;
-        const checked = selectedCharacters.has(avatar);
-        const worlds  = getCharacterWorlds(char);
-        const wTag    = worlds.length
+        const avatar    = char.avatar;
+        const name      = char.name || avatar;
+        const checked   = selectedCharacters.has(avatar);
+        const worlds    = getCharacterWorlds(char);
+        const wTag      = worlds.length
             ? `<span class="bcd-tag"><i class="fa-solid fa-book fa-xs"></i> ${worlds.length > 1 ? worlds.length + ' 个世界书' : worlds[0]}</span>`
             : '';
         const avatarSrc = avatar ? `/characters/${avatar}` : 'img/ai4.png';
 
         const row = document.createElement('div');
         row.className = `bcd-row${checked ? ' bcd-row--checked' : ''}`;
-        row.dataset.avatar = avatar;
         row.innerHTML = `
             <label class="bcd-row-label">
                 <input type="checkbox" class="bcd-cb" ${checked ? 'checked' : ''}>
@@ -77,7 +98,8 @@ function renderCharacterList() {
                 </span>
             </label>`;
 
-        row.querySelector('.bcd-cb').addEventListener('change', function () {
+        row.querySelector('.bcd-cb').addEventListener('change', function (e) {
+            e.stopPropagation();
             if (this.checked) selectedCharacters.add(avatar);
             else selectedCharacters.delete(avatar);
             row.classList.toggle('bcd-row--checked', this.checked);
@@ -89,7 +111,9 @@ function renderCharacterList() {
 }
 
 function renderWorldbookList() {
-    const names = world_names ?? [];
+    // 每次渲染时重新读取，确保反映最新状态
+    const ctx   = getContext();
+    const names = ctx.world_names ?? world_names ?? [];
     const container = document.getElementById('bcd-item-list');
     if (!container) return;
     container.innerHTML = '';
@@ -104,7 +128,6 @@ function renderWorldbookList() {
         const checked = selectedWorldbooks.has(name);
         const row = document.createElement('div');
         row.className = `bcd-row${checked ? ' bcd-row--checked' : ''}`;
-        row.dataset.name = name;
         row.innerHTML = `
             <label class="bcd-row-label">
                 <input type="checkbox" class="bcd-cb" ${checked ? 'checked' : ''}>
@@ -114,7 +137,8 @@ function renderWorldbookList() {
                 </span>
             </label>`;
 
-        row.querySelector('.bcd-cb').addEventListener('change', function () {
+        row.querySelector('.bcd-cb').addEventListener('change', function (e) {
+            e.stopPropagation();
             if (this.checked) selectedWorldbooks.add(name);
             else selectedWorldbooks.delete(name);
             row.classList.toggle('bcd-row--checked', this.checked);
@@ -133,16 +157,15 @@ function updateToolbar() {
 
     if (currentTab === 'characters') {
         const ctx   = getContext();
-        const chars = ctx.characters ?? characters ?? [];
-        const total = chars.length;
+        const total = (ctx.characters ?? characters ?? []).length;
         const sel   = selectedCharacters.size;
         selectAllCb.indeterminate = sel > 0 && sel < total;
         selectAllCb.checked       = total > 0 && sel === total;
         countSpan.textContent     = sel > 0 ? `（${sel}）` : '';
         delBtn.disabled           = sel === 0;
     } else {
-        const names = world_names ?? [];
-        const total = names.length;
+        const ctx   = getContext();
+        const total = (ctx.world_names ?? world_names ?? []).length;
         const sel   = selectedWorldbooks.size;
         selectAllCb.indeterminate = sel > 0 && sel < total;
         selectAllCb.checked       = total > 0 && sel === total;
@@ -182,7 +205,7 @@ function setProgress(done, total) {
     if (txt) txt.textContent = `${done} / ${total}`;
 }
 
-// ─── Delete flow ─────────────────────────────────────────────────────────────
+// ─── Delete flows ─────────────────────────────────────────────────────────────
 
 async function handleDelete() {
     if (currentTab === 'characters') await deleteChars();
@@ -194,6 +217,7 @@ async function deleteChars() {
     const ctx   = getContext();
     const chars = ctx.characters ?? characters ?? [];
 
+    // 收集关联世界书
     const assocWorlds = new Set();
     for (const av of selectedCharacters) {
         const c = chars.find(x => x.avatar === av);
@@ -211,15 +235,26 @@ async function deleteChars() {
     const total = selectedCharacters.size + go.worldsToDelete.length;
 
     for (const av of [...selectedCharacters]) {
-        try { await apiDeleteCharacter(av); selectedCharacters.delete(av); }
-        catch (e) { console.error(e); toastr.error(`删除失败: ${av}`); }
+        try {
+            await apiDeleteCharacter(av);
+            selectedCharacters.delete(av);
+        } catch (e) {
+            console.error(e);
+            toastr.error(e.message);
+        }
         setProgress(++done, total);
     }
+
     for (const n of go.worldsToDelete) {
-        try { await apiDeleteWorldbook(n); }
-        catch (e) { console.error(e); toastr.error(`删除世界书失败: ${n}`); }
+        try {
+            await apiDeleteWorldbook(n);
+        } catch (e) {
+            console.error(e);
+            toastr.error(e.message);
+        }
         setProgress(++done, total);
     }
+
     showProgress(false);
     toastr.success('批量删除完成');
     await ctx.getCharacters?.();
@@ -228,18 +263,32 @@ async function deleteChars() {
 
 async function deleteWBs() {
     if (!selectedWorldbooks.size) return;
-    const go = await showConfirm(`确认删除 ${selectedWorldbooks.size} 个世界书？此操作不可撤销。`, []);
+
+    // 世界书界面：直接弹简单确认，不涉及角色卡
+    const go = await showConfirm(
+        `确认删除 ${selectedWorldbooks.size} 个世界书？此操作不可撤销。`,
+        [] // 无关联列表
+    );
     if (!go) return;
 
     showProgress(true);
-    let done = 0, total = selectedWorldbooks.size;
+    let done = 0;
+    const total = selectedWorldbooks.size;
+
     for (const n of [...selectedWorldbooks]) {
-        try { await apiDeleteWorldbook(n); selectedWorldbooks.delete(n); }
-        catch (e) { console.error(e); toastr.error(`删除失败: ${n}`); }
+        try {
+            await apiDeleteWorldbook(n);
+            selectedWorldbooks.delete(n);
+        } catch (e) {
+            console.error(e);
+            toastr.error(e.message);
+        }
         setProgress(++done, total);
     }
+
     showProgress(false);
     toastr.success('批量删除完成');
+    // 重新渲染世界书列表（world_names 已被 deleteWorldInfo 更新）
     renderWorldbookList();
 }
 
@@ -255,6 +304,7 @@ function showConfirm(msg, worlds) {
         const noBtn  = document.getElementById('bcd-confirm-no');
 
         msgEl.textContent = msg;
+
         if (worlds.length) {
             wbSec.style.display = '';
             wbList.innerHTML = worlds.map(w =>
@@ -264,76 +314,22 @@ function showConfirm(msg, worlds) {
             wbSec.style.display = 'none';
             wbList.innerHTML = '';
         }
+
         modal.style.display = 'flex';
 
-        okBtn.onclick = () => {
+        // 每次都重新绑定，避免残留旧的回调
+        okBtn.onclick = (e) => {
+            e.stopPropagation();
             modal.style.display = 'none';
             const worldsToDelete = [...wbList.querySelectorAll('input:checked')].map(i => i.value);
             resolve({ worldsToDelete });
         };
-        noBtn.onclick = () => { modal.style.display = 'none'; resolve(null); };
+        noBtn.onclick = (e) => {
+            e.stopPropagation();
+            modal.style.display = 'none';
+            resolve(null);
+        };
     });
-}
-
-// ─── Drag to move ─────────────────────────────────────────────────────────────
-
-function makeDraggable(panel, handle) {
-    let startX, startY, origLeft, origTop, isDragging = false;
-
-    function getPos(e) {
-        return e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
-                         : { x: e.clientX, y: e.clientY };
-    }
-
-    function onDown(e) {
-        if (e.target.closest('button,input,label,select,a')) return;
-        const pos  = getPos(e);
-        startX     = pos.x;
-        startY     = pos.y;
-        const rect = panel.getBoundingClientRect();
-        origLeft   = rect.left;
-        origTop    = rect.top;
-        isDragging = true;
-
-        // Lock to absolute pixel position, remove centering transform
-        panel.style.transition = 'none';
-        panel.style.transform  = 'none';
-        panel.style.left       = origLeft + 'px';
-        panel.style.top        = origTop  + 'px';
-        panel.style.margin     = '0';
-
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('touchmove', onMove, { passive: false });
-        document.addEventListener('mouseup',   onUp);
-        document.addEventListener('touchend',  onUp);
-    }
-
-    function onMove(e) {
-        if (!isDragging) return;
-        e.preventDefault();
-        const pos  = getPos(e);
-        const dx   = pos.x - startX;
-        const dy   = pos.y - startY;
-        const vw   = window.innerWidth;
-        const vh   = window.innerHeight;
-        const pw   = panel.offsetWidth;
-        const ph   = panel.offsetHeight;
-        const gap  = 12;
-        panel.style.left = Math.min(Math.max(origLeft + dx, gap), vw - pw - gap) + 'px';
-        panel.style.top  = Math.min(Math.max(origTop  + dy, gap), vh - ph - gap) + 'px';
-    }
-
-    function onUp() {
-        isDragging = false;
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('touchmove', onMove);
-        document.removeEventListener('mouseup',   onUp);
-        document.removeEventListener('touchend',  onUp);
-    }
-
-    handle.addEventListener('mousedown',  onDown);
-    handle.addEventListener('touchstart', onDown, { passive: false });
-    handle.style.cursor = 'grab';
 }
 
 // ─── Panel HTML ───────────────────────────────────────────────────────────────
@@ -347,20 +343,19 @@ function buildPanel() {
 
         <div id="bcd-header" class="bcd-header">
             <span class="bcd-title">
-                <i class="fa-solid fa-grip bcd-grip"></i>
                 <i class="fa-solid fa-trash-can"></i>
                 批量删除
             </span>
-            <button id="bcd-close" class="bcd-icon-btn" title="关闭">
+            <button id="bcd-close" class="bcd-icon-btn" title="关闭" type="button">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
 
         <div class="bcd-tabs">
-            <button id="bcd-tab-chars" class="bcd-tab bcd-tab--active">
+            <button id="bcd-tab-chars" class="bcd-tab bcd-tab--active" type="button">
                 <i class="fa-solid fa-user"></i> 角色卡
             </button>
-            <button id="bcd-tab-wb" class="bcd-tab">
+            <button id="bcd-tab-wb" class="bcd-tab" type="button">
                 <i class="fa-solid fa-book"></i> 世界书
             </button>
         </div>
@@ -381,7 +376,7 @@ function buildPanel() {
         <div id="bcd-item-list" class="bcd-list"></div>
 
         <div class="bcd-footer">
-            <button id="bcd-delete-btn" class="bcd-delete-btn" disabled>
+            <button id="bcd-delete-btn" class="bcd-delete-btn" disabled type="button">
                 <i class="fa-solid fa-trash-can"></i>
                 删除所选<span id="bcd-count"></span>
             </button>
@@ -398,56 +393,92 @@ function buildPanel() {
             <div id="bcd-confirm-wb-list" class="bcd-confirm-wb-list"></div>
         </div>
         <div class="bcd-confirm-btns">
-            <button id="bcd-confirm-no"  class="bcd-btn-secondary">取消</button>
-            <button id="bcd-confirm-ok"  class="bcd-btn-danger-confirm">确认删除</button>
+            <button id="bcd-confirm-no"  class="bcd-btn-secondary"      type="button">取消</button>
+            <button id="bcd-confirm-ok"  class="bcd-btn-danger-confirm" type="button">确认删除</button>
         </div>
     </div>
 </div>`);
 
-    makeDraggable(
-        document.getElementById('bcd-panel'),
-        document.getElementById('bcd-header')
-    );
     bindEvents();
 }
 
 function bindEvents() {
     const overlay = document.getElementById('bcd-overlay');
+    const panel   = document.getElementById('bcd-panel');
 
-    document.getElementById('bcd-close').addEventListener('click', closePanel);
-    overlay.addEventListener('click', e => { if (e.target === overlay) closePanel(); });
+    // ── 阻止面板内所有点击冒泡到 ST 的 document 监听器 ──
+    // 这是导致"点击面板后跳回扩展页面"的根本原因：
+    // ST 在 document 上监听了 click，点击面板内容会冒泡触发它。
+    panel.addEventListener('click',      e => e.stopPropagation());
+    panel.addEventListener('mousedown',  e => e.stopPropagation());
+    panel.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
 
-    document.getElementById('bcd-tab-chars').addEventListener('click', () => {
-        selectedCharacters.clear(); selectedWorldbooks.clear(); switchTab('characters');
+    // 确认弹窗同样要阻止冒泡
+    const confirmBox = document.querySelector('.bcd-confirm-box');
+    if (confirmBox) {
+        confirmBox.addEventListener('click',      e => e.stopPropagation());
+        confirmBox.addEventListener('mousedown',  e => e.stopPropagation());
+        confirmBox.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+    }
+
+    // 点 overlay 背景关闭面板
+    overlay.addEventListener('click', e => {
+        if (e.target === overlay) closePanel();
     });
-    document.getElementById('bcd-tab-wb').addEventListener('click', () => {
-        selectedCharacters.clear(); selectedWorldbooks.clear(); switchTab('worldbooks');
+
+    document.getElementById('bcd-close').addEventListener('click', e => {
+        e.stopPropagation();
+        closePanel();
     });
 
-    document.getElementById('bcd-select-all').addEventListener('change', function () {
+    document.getElementById('bcd-tab-chars').addEventListener('click', e => {
+        e.stopPropagation();
+        selectedCharacters.clear();
+        selectedWorldbooks.clear();
+        switchTab('characters');
+    });
+
+    document.getElementById('bcd-tab-wb').addEventListener('click', e => {
+        e.stopPropagation();
+        selectedCharacters.clear();
+        selectedWorldbooks.clear();
+        switchTab('worldbooks');
+    });
+
+    document.getElementById('bcd-select-all').addEventListener('change', function (e) {
+        e.stopPropagation();
         if (currentTab === 'characters') {
             const chars = (getContext().characters ?? characters ?? []);
             selectedCharacters.clear();
             if (this.checked) chars.forEach(c => selectedCharacters.add(c.avatar));
+            renderCharacterList();
         } else {
-            const names = world_names ?? [];
+            const ctx   = getContext();
+            const names = ctx.world_names ?? world_names ?? [];
             selectedWorldbooks.clear();
             if (this.checked) names.forEach(n => selectedWorldbooks.add(n));
+            renderWorldbookList();
         }
-        currentTab === 'characters' ? renderCharacterList() : renderWorldbookList();
     });
 
-    document.getElementById('bcd-search').addEventListener('input', function () {
+    document.getElementById('bcd-search').addEventListener('input', function (e) {
+        e.stopPropagation();
         applySearch(this.value);
     });
 
-    document.getElementById('bcd-delete-btn').addEventListener('click', handleDelete);
+    document.getElementById('bcd-delete-btn').addEventListener('click', e => {
+        e.stopPropagation();
+        handleDelete();
+    });
 
     document.addEventListener('keydown', e => {
         if (e.key !== 'Escape') return;
         const conf = document.getElementById('bcd-confirm');
-        if (conf?.style.display !== 'none') conf.style.display = 'none';
-        else closePanel();
+        if (conf?.style.display !== 'none') {
+            conf.style.display = 'none';
+        } else {
+            closePanel();
+        }
     });
 }
 
@@ -457,13 +488,7 @@ function openPanel() {
     selectedWorldbooks.clear();
     currentTab = 'characters';
 
-    const panel   = document.getElementById('bcd-panel');
-    const overlay = document.getElementById('bcd-overlay');
-
-    // Reset to CSS-centered position
-    panel.style.cssText = '';
-    overlay.style.display = 'flex';
-
+    document.getElementById('bcd-overlay').style.display = 'flex';
     document.getElementById('bcd-tab-chars').classList.add('bcd-tab--active');
     document.getElementById('bcd-tab-wb').classList.remove('bcd-tab--active');
     renderCharacterList();
@@ -475,14 +500,11 @@ function closePanel() {
 }
 
 // ─── Inject menu button ───────────────────────────────────────────────────────
-// Uses the exact same `menu_button menu_button_icon` class as the native
-// "Manage extensions" and "Install extension" buttons → identical look & spacing.
 
 function injectMenuButton() {
     const tryInject = () => {
         if (document.getElementById('bcd-menu-btn')) return true;
 
-        // Target: the header flex row inside .extensions_block
         const row = document.querySelector(
             '#rm_extensions_block .extensions_block > .flex-container.alignitemscenter'
         );
@@ -493,7 +515,10 @@ function injectMenuButton() {
         btn.className = 'menu_button menu_button_icon';
         btn.title     = '批量删除角色卡';
         btn.innerHTML = '<i class="fa-solid fa-trash-can"></i><span>批量删除角色卡</span>';
-        btn.addEventListener('click', openPanel);
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            openPanel();
+        });
         row.appendChild(btn);
         return true;
     };
@@ -506,5 +531,5 @@ function injectMenuButton() {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 jQuery(async () => {
     injectMenuButton();
-    console.log('[Bulk Character Deleter] Loaded.');
+    console.log('[Bulk Character Deleter] v1.2 Loaded.');
 });

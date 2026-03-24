@@ -1,17 +1,12 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Bulk Character Deleter — style.css  v1.1
-   Menu entry: 零自定义样式，完全复用 ST 原生 .menu_button.menu_button_icon
-   Panel: 居中弹出，四边留 margin，可拖拽，适配移动端
+   Bulk Character Deleter — style.css  v1.2
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ────────────────────────────────────────────────────────────────────────────
-   菜单入口按钮 — 不写任何额外样式，让 ST 原生类完全接管
-   #bcd-menu-btn 只需 .menu_button.menu_button_icon 就够了
-   ──────────────────────────────────────────────────────────────────────────── */
+/* ── 菜单入口：完全用 ST 原生 .menu_button.menu_button_icon，不加任何样式 ── */
 
-/* ────────────────────────────────────────────────────────────────────────────
-   Overlay 背景遮罩
-   ──────────────────────────────────────────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────────────────────
+   主面板 Overlay（背景遮罩 + 居中容器）
+   ────────────────────────────────────────────────────────────────────────── */
 .bcd-overlay {
     position: fixed;
     inset: 0;
@@ -20,24 +15,30 @@
     backdrop-filter: blur(2px);
     -webkit-backdrop-filter: blur(2px);
     display: flex;
-    align-items: center;          /* 垂直居中 */
+    align-items: center;
     justify-content: center;
-    /* 用 dvh（动态视口高度）而不是 vh，自动排除手机浏览器地址栏/底栏 */
-    min-height: 100dvh;
-    /* 兼容不支持 dvh 的旧机型 */
+    /* dvh 自动排除手机浏览器地址栏，避免面板偏上 */
     min-height: 100vh;
     min-height: 100dvh;
-    /* 四边安全距离，底部额外加 env(safe-area-inset-bottom) 避开 Home 条 */
-    padding: 16px;
-    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    /*
+     * 手机端上下 padding 说明：
+     *   56px ≈ ST 顶部工具栏高度，让面板不压在顶栏下方
+     *   底部同等，确保视觉上居中
+     *   左右 12px 不贴边
+     *
+     * 自己微调位置：
+     *   面板还是偏上 → 把第一个 56px 改小，如 40px
+     *   面板偏下    → 把 56px 改大，如 72px
+     */
+    padding: 56px 12px 56px;
+    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
     box-sizing: border-box;
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
+/* ──────────────────────────────────────────────────────────────────────────
    主面板
-   ──────────────────────────────────────────────────────────────────────────── */
+   ────────────────────────────────────────────────────────────────────────── */
 .bcd-panel {
-    /* 颜色完全跟随 ST 主题变量，不写死任何颜色 */
     background: var(--SmartThemeBlurTintColor);
     border: 1px solid var(--SmartThemeBorderColor);
     border-radius: 10px;
@@ -45,23 +46,20 @@
     color: var(--SmartThemeBodyColor);
     font-family: var(--mainFontFamily, inherit);
 
-    /* 居中显示时的尺寸 */
     width: 520px;
-    max-width: 100%;         /* overlay 的 padding 已经留边距 */
-    max-height: calc(100vh - 32px);
-    max-height: calc(100dvh - 32px);
+    max-width: 100%;
+    max-height: calc(100vh - 112px);
+    max-height: calc(100dvh - 112px);
 
     display: flex;
     flex-direction: column;
     overflow: hidden;
-
-    /* 拖拽时 JS 会把 left/top 设为绝对值并清除 margin/transform */
     position: relative;
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
-   Header（拖拽手柄）
-   ──────────────────────────────────────────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────────────────────
+   Header（无拖拽，普通标题栏）
+   ────────────────────────────────────────────────────────────────────────── */
 .bcd-header {
     display: flex;
     align-items: center;
@@ -69,12 +67,7 @@
     padding: 10px 14px 8px;
     border-bottom: 1px solid var(--SmartThemeBorderColor);
     flex-shrink: 0;
-    user-select: none;
-    cursor: grab;
-}
-
-.bcd-header:active {
-    cursor: grabbing;
+    /* 无 cursor:grab，因为已移除拖拽功能 */
 }
 
 .bcd-title {
@@ -86,13 +79,6 @@
     color: var(--SmartThemeEmColor);
 }
 
-.bcd-grip {
-    color: var(--SmartThemeBodyColor);
-    opacity: 0.4;
-    font-size: 0.85rem;
-}
-
-/* 关闭按钮复用 ST 风格，不设固定颜色 */
 .bcd-icon-btn {
     background: none;
     border: none;
@@ -110,12 +96,11 @@
     color: var(--SmartThemeEmColor);
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
+/* ──────────────────────────────────────────────────────────────────────────
    标签页
-   ──────────────────────────────────────────────────────────────────────────── */
+   ────────────────────────────────────────────────────────────────────────── */
 .bcd-tabs {
     display: flex;
-    gap: 0;
     padding: 8px 14px 0;
     flex-shrink: 0;
 }
@@ -146,9 +131,9 @@
     border-bottom-color: var(--SmartThemeQuoteColor, #e87);
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
+/* ──────────────────────────────────────────────────────────────────────────
    工具栏（全选 + 搜索）
-   ──────────────────────────────────────────────────────────────────────────── */
+   ────────────────────────────────────────────────────────────────────────── */
 .bcd-toolbar {
     display: flex;
     align-items: center;
@@ -175,7 +160,6 @@
     height: 14px;
 }
 
-/* 搜索框：跟 ST 的 .text_pole 一致的感觉，继承背景/边框颜色 */
 .bcd-search {
     flex: 1;
     background: var(--SmartThemeBlurTintColor);
@@ -197,9 +181,9 @@
     opacity: 0.45;
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
+/* ──────────────────────────────────────────────────────────────────────────
    进度条
-   ──────────────────────────────────────────────────────────────────────────── */
+   ────────────────────────────────────────────────────────────────────────── */
 .bcd-progress {
     display: flex;
     align-items: center;
@@ -233,9 +217,9 @@
     text-align: right;
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
+/* ──────────────────────────────────────────────────────────────────────────
    列表
-   ──────────────────────────────────────────────────────────────────────────── */
+   ────────────────────────────────────────────────────────────────────────── */
 .bcd-list {
     flex: 1;
     overflow-y: auto;
@@ -344,10 +328,9 @@
     font-size: 0.9rem;
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
+/* ──────────────────────────────────────────────────────────────────────────
    Footer / 删除按钮
-   复用 ST 的 .menu_button 质感（边框 + hover），只加危险色调
-   ──────────────────────────────────────────────────────────────────────────── */
+   ────────────────────────────────────────────────────────────────────────── */
 .bcd-footer {
     display: flex;
     justify-content: flex-end;
@@ -357,7 +340,6 @@
 }
 
 .bcd-delete-btn {
-    /* 外观基础和 ST 的 menu_button 对齐 */
     display: inline-flex;
     align-items: center;
     gap: 6px;
@@ -367,8 +349,6 @@
     font-weight: 600;
     cursor: pointer;
     transition: background 0.15s, opacity 0.15s;
-
-    /* 危险色调 */
     background: rgba(180, 40, 40, 0.18);
     border: 1px solid rgba(180, 40, 40, 0.45);
     color: #ff9090;
@@ -384,20 +364,23 @@
     cursor: not-allowed;
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
-   确认弹窗（在面板之上）
-   ──────────────────────────────────────────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────────────────────
+   确认弹窗 — 独立 overlay，z-index 高于主面板，确保居中
+   ────────────────────────────────────────────────────────────────────────── */
 .bcd-confirm-overlay {
     position: fixed;
     inset: 0;
-    z-index: 9995;
+    z-index: 9995;          /* 高于主面板的 9990 */
     background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(3px);
     -webkit-backdrop-filter: blur(3px);
     display: flex;
-    align-items: center;
+    align-items: center;    /* 垂直居中 */
     justify-content: center;
-    padding: 16px;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 24px 16px;     /* 上下留小边距，不需要像主面板那么大 */
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
     box-sizing: border-box;
 }
 
@@ -456,7 +439,10 @@
     cursor: pointer;
 }
 
-.bcd-wbcheck input { accent-color: var(--SmartThemeQuoteColor, #e87); cursor: pointer; }
+.bcd-wbcheck input {
+    accent-color: var(--SmartThemeQuoteColor, #e87);
+    cursor: pointer;
+}
 
 .bcd-confirm-btns {
     display: flex;
@@ -465,7 +451,6 @@
     margin-top: 2px;
 }
 
-/* 次要按钮：跟 ST menu_button 一致 */
 .bcd-btn-secondary {
     display: inline-flex;
     align-items: center;
@@ -485,7 +470,6 @@
     color: var(--SmartThemeEmColor);
 }
 
-/* 危险确认按钮 */
 .bcd-btn-danger-confirm {
     display: inline-flex;
     align-items: center;
@@ -504,30 +488,12 @@
     background: rgba(180, 40, 40, 0.38);
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
-   移动端适配
-   ──────────────────────────────────────────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────────────────────
+   移动端补充
+   ────────────────────────────────────────────────────────────────────────── */
 @media (max-width: 560px) {
-    .bcd-overlay {
-        /*
-         * 手机端上下 padding 说明：
-         *   padding-top  56px ≈ ST顶部工具栏高度，让面板不压在顶栏下面
-         *   padding-bottom 56px ≈ ST底部导航栏高度
-         *   左右 12px = 四边不贴屏幕边缘
-         *
-         * 想自己微调位置？
-         *   面板偏上 → 把第一个 56px 改小（例如 40px）
-         *   面板偏下 → 把第一个 56px 改大（例如 72px）
-         */
-        padding: 56px 12px 56px;
-        padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
-        align-items: center;
-    }
-
     .bcd-panel {
         width: 100%;
-        max-height: calc(100dvh - 112px);
-        max-height: calc(100vh  - 112px);
     }
 
     .bcd-confirm-box {
