@@ -5,6 +5,6 @@
     "css": "style.css",
     "author": "Twelve",
     "description": "批量勾选并删除角色卡和世界书，支持全选、搜索筛选，可选同步删除关联世界书。",
-    "homePage": "https://github.com/4iovu/SillyTavern-BatchDelete",
+    "homePage": "https://github.com/4iovu/SillyTavern-BatchDelete-test",
     "auto_update": true
 }
