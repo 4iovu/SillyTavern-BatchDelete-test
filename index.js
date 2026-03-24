@@ -1,460 +1,582 @@
 /**
- * SillyTavern Bulk Delete Extension
- * 批量删除角色卡 & 世界书插件
- * 
- * 在扩展菜单底部添加"批量删除"入口，
- * 点击弹出面板可多选/全选角色卡或世界书并批量删除。
+ * Bulk Character & Worldbook Deleter
+ * SillyTavern Extension
+ * https://github.com/YOUR_USERNAME/st-bulk-character-deleter
  */
 
-import { characters, getRequestHeaders, printCharacters } from '../../../../script.js';
-import { getWorldInfoFileName, deleteWorldInfo } from '../../../world-info.js';
-import { extension_settings, getContext } from '../../../extensions.js';
-import { callPopup, POPUP_TYPE } from '../../../popup.js';
+import { getRequestHeaders, characters, this_chid } from '../../../../script.js';
+import { getContext, extension_settings } from '../../../extensions.js';
+import { world_names, deleteWorldInfo } from '../../../../scripts/world-info.js';
 
-// ─── 常量 ────────────────────────────────────────────────────────────────────
-const EXT_NAME = 'bulk-delete';
-const PANEL_ID = 'bulk-delete-panel';
-const OVERLAY_ID = 'bulk-delete-overlay';
+const extensionName = 'bulk-character-deleter';
+const extensionFolderPath = `scripts/extensions/third-party/${extensionName}`;
 
-// ─── 初始化入口 ──────────────────────────────────────────────────────────────
-jQuery(async () => {
-    await loadStyles();
-    injectMenuButton();
-});
+// ─── State ────────────────────────────────────────────────────────────────────
+let currentTab = 'characters'; // 'characters' | 'worldbooks'
+let selectedCharacters = new Set();   // avatar filenames
+let selectedWorldbooks  = new Set();  // worldbook names
 
-// ─── 注入样式 ────────────────────────────────────────────────────────────────
-async function loadStyles() {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = '/extensions/bulk-delete/style.css';
-    document.head.appendChild(link);
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Returns a deduplicated list of world-info names attached to a character.
+ * Reads from char.data?.extensions?.world (V2 spec) and char.world (legacy).
+ */
+function getCharacterWorlds(char) {
+    const worlds = new Set();
+    if (char?.data?.extensions?.world) worlds.add(char.data.extensions.world);
+    if (char?.world) worlds.add(char.world);
+    return [...worlds].filter(Boolean);
 }
 
-// ─── 在扩展菜单底部注入按钮 ───────────────────────────────────────────────────
-function injectMenuButton() {
-    // extensionsMenu 是 ST 动态生成的，需要等它就绪
-    // 用 MutationObserver + 轮询双保险
-    const tryInject = () => {
-        const menu = document.getElementById('extensionsMenu');
-        if (menu && !document.getElementById('bulk-delete-menu-btn')) {
-            const li = document.createElement('li');
-            li.id = 'bulk-delete-menu-btn';
-            li.innerHTML = `<i class="fa-solid fa-trash"></i><span>批量删除</span>`;
-            li.addEventListener('click', (e) => {
-                e.stopPropagation();
-                // 关闭扩展菜单
-                menu.style.display = 'none';
-                openPanel();
-            });
-            menu.appendChild(li);
-            return true;
-        }
-        return false;
-    };
-
-    if (!tryInject()) {
-        // 观察 body，等 extensionsMenu 出现
-        const obs = new MutationObserver(() => {
-            if (tryInject()) obs.disconnect();
-        });
-        obs.observe(document.body, { childList: true, subtree: true });
-    }
+/**
+ * Deletes a single character by avatar filename.
+ * Uses the same endpoint SillyTavern itself uses.
+ */
+async function apiDeleteCharacter(avatar) {
+    const response = await fetch('/api/characters/delete', {
+        method: 'POST',
+        headers: getRequestHeaders(),
+        body: JSON.stringify({ avatar_url: avatar, delete_chats: true }),
+    });
+    if (!response.ok) throw new Error(`Delete character failed: ${avatar}`);
 }
 
-// ─── 打开面板 ────────────────────────────────────────────────────────────────
-function openPanel() {
-    // 已存在则直接显示
-    let overlay = document.getElementById(OVERLAY_ID);
-    if (overlay) {
-        overlay.classList.remove('bd-hidden');
-        renderTab('characters');
+/**
+ * Deletes a single worldbook by name via the world-info API.
+ */
+async function apiDeleteWorldbook(name) {
+    const response = await fetch('/api/worldinfo/delete', {
+        method: 'POST',
+        headers: getRequestHeaders(),
+        body: JSON.stringify({ name }),
+    });
+    if (!response.ok) throw new Error(`Delete worldbook failed: ${name}`);
+}
+
+// ─── Panel render helpers ─────────────────────────────────────────────────────
+
+function renderCharacterList() {
+    const ctx = getContext();
+    const chars = ctx.characters ?? characters ?? [];
+    const container = document.getElementById('bcd-item-list');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (!chars.length) {
+        container.innerHTML = '<div class="bcd-empty">暂无角色卡</div>';
         return;
     }
 
-    // 创建遮罩
-    overlay = document.createElement('div');
-    overlay.id = OVERLAY_ID;
-    overlay.innerHTML = buildPanelHTML();
-    document.body.appendChild(overlay);
+    chars.forEach((char, idx) => {
+        const avatar   = char.avatar;
+        const name     = char.name || avatar;
+        const checked  = selectedCharacters.has(avatar);
+        const isActive = (ctx.characterId !== undefined && ctx.characters?.[ctx.characterId]?.avatar === avatar);
+        const worlds   = getCharacterWorlds(char);
+        const worldTag = worlds.length
+            ? `<span class="bcd-world-tag" title="${worlds.join(', ')}"><i class="fa-solid fa-book"></i> ${worlds.length > 1 ? worlds.length + '个世界书' : worlds[0]}</span>`
+            : '';
 
-    // 关闭按钮
-    overlay.querySelector('#bd-close-btn').addEventListener('click', closePanel);
-    overlay.querySelector('#bd-overlay-bg').addEventListener('click', closePanel);
+        const avatarUrl = char.avatar
+            ? `/characters/${char.avatar}`
+            : 'img/ai4.png';
 
-    // Tab 切换
-    overlay.querySelector('#bd-tab-chars').addEventListener('click', () => switchTab('characters'));
-    overlay.querySelector('#bd-tab-worlds').addEventListener('click', () => switchTab('worldbooks'));
+        const row = document.createElement('div');
+        row.className = `bcd-item-row${checked ? ' bcd-selected' : ''}${isActive ? ' bcd-active-char' : ''}`;
+        row.dataset.avatar = avatar;
+        row.innerHTML = `
+            <label class="bcd-row-inner">
+                <input type="checkbox" class="bcd-checkbox" data-avatar="${avatar}" ${checked ? 'checked' : ''}>
+                <img class="bcd-avatar" src="${avatarUrl}" onerror="this.src='img/ai4.png'" alt="">
+                <div class="bcd-info">
+                    <span class="bcd-name">${name}</span>
+                    ${worldTag}
+                </div>
+            </label>`;
 
-    // 全选
-    overlay.querySelector('#bd-select-all').addEventListener('change', (e) => {
-        overlay.querySelectorAll('.bd-item-checkbox').forEach(cb => {
-            cb.checked = e.target.checked;
+        row.querySelector('.bcd-checkbox').addEventListener('change', function () {
+            if (this.checked) {
+                selectedCharacters.add(avatar);
+                row.classList.add('bcd-selected');
+            } else {
+                selectedCharacters.delete(avatar);
+                row.classList.remove('bcd-selected');
+            }
+            syncSelectAllState('characters');
+            updateDeleteButton();
         });
-        updateDeleteBtn();
+
+        container.appendChild(row);
     });
 
-    // 删除按钮
-    overlay.querySelector('#bd-delete-btn').addEventListener('click', handleDelete);
-
-    renderTab('characters');
+    syncSelectAllState('characters');
+    updateDeleteButton();
 }
 
-// ─── 关闭面板 ────────────────────────────────────────────────────────────────
-function closePanel() {
-    const overlay = document.getElementById(OVERLAY_ID);
-    if (overlay) overlay.classList.add('bd-hidden');
+function renderWorldbookList() {
+    const names = world_names ?? [];
+    const container = document.getElementById('bcd-item-list');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (!names.length) {
+        container.innerHTML = '<div class="bcd-empty">暂无世界书</div>';
+        return;
+    }
+
+    names.forEach(name => {
+        const checked = selectedWorldbooks.has(name);
+        const row = document.createElement('div');
+        row.className = `bcd-item-row${checked ? ' bcd-selected' : ''}`;
+        row.dataset.name = name;
+        row.innerHTML = `
+            <label class="bcd-row-inner">
+                <input type="checkbox" class="bcd-checkbox" data-name="${name}" ${checked ? 'checked' : ''}>
+                <div class="bcd-wb-icon"><i class="fa-solid fa-book-open"></i></div>
+                <div class="bcd-info">
+                    <span class="bcd-name">${name}</span>
+                </div>
+            </label>`;
+
+        row.querySelector('.bcd-checkbox').addEventListener('change', function () {
+            if (this.checked) {
+                selectedWorldbooks.add(name);
+                row.classList.add('bcd-selected');
+            } else {
+                selectedWorldbooks.delete(name);
+                row.classList.remove('bcd-selected');
+            }
+            syncSelectAllState('worldbooks');
+            updateDeleteButton();
+        });
+
+        container.appendChild(row);
+    });
+
+    syncSelectAllState('worldbooks');
+    updateDeleteButton();
 }
 
-// ─── 构建面板 HTML ────────────────────────────────────────────────────────────
-function buildPanelHTML() {
-    return `
-<div id="bd-overlay-bg"></div>
-<div id="${PANEL_ID}" role="dialog" aria-modal="true" aria-label="批量删除">
-  <div class="bd-panel-header">
-    <div class="bd-tabs">
-      <button id="bd-tab-chars" class="bd-tab active" data-tab="characters">
-        <i class="fa-solid fa-user"></i> 角色卡
-      </button>
-      <button id="bd-tab-worlds" class="bd-tab" data-tab="worldbooks">
-        <i class="fa-solid fa-book-atlas"></i> 世界书
-      </button>
-    </div>
-    <button id="bd-close-btn" class="bd-close-btn" title="关闭">
-      <i class="fa-solid fa-xmark"></i>
-    </button>
-  </div>
+function syncSelectAllState(tab) {
+    const cb = document.getElementById('bcd-select-all');
+    if (!cb) return;
 
-  <div class="bd-toolbar">
-    <label class="bd-select-all-label">
-      <input type="checkbox" id="bd-select-all">
-      <span>全选</span>
-    </label>
-    <span id="bd-selected-count" class="bd-count">已选 0 项</span>
-  </div>
-
-  <div id="bd-list-container" class="bd-list-container">
-    <div class="bd-loading"><i class="fa-solid fa-spinner fa-spin"></i> 加载中...</div>
-  </div>
-
-  <div class="bd-panel-footer">
-    <button id="bd-delete-btn" class="bd-delete-btn" disabled>
-      <i class="fa-solid fa-trash"></i> 删除所选
-    </button>
-  </div>
-</div>`;
+    if (tab === 'characters') {
+        const ctx   = getContext();
+        const chars = ctx.characters ?? characters ?? [];
+        const total = chars.length;
+        const sel   = selectedCharacters.size;
+        cb.indeterminate = sel > 0 && sel < total;
+        cb.checked = total > 0 && sel === total;
+    } else {
+        const names = world_names ?? [];
+        const total = names.length;
+        const sel   = selectedWorldbooks.size;
+        cb.indeterminate = sel > 0 && sel < total;
+        cb.checked = total > 0 && sel === total;
+    }
 }
 
-// ─── 当前激活 Tab ─────────────────────────────────────────────────────────────
-let currentTab = 'characters';
+function updateDeleteButton() {
+    const btn  = document.getElementById('bcd-delete-btn');
+    const span = document.getElementById('bcd-delete-count');
+    if (!btn || !span) return;
+
+    const count = currentTab === 'characters' ? selectedCharacters.size : selectedWorldbooks.size;
+    span.textContent = count > 0 ? ` (${count})` : '';
+    btn.disabled = count === 0;
+    btn.classList.toggle('bcd-btn-danger', count > 0);
+}
 
 function switchTab(tab) {
     currentTab = tab;
-    const overlay = document.getElementById(OVERLAY_ID);
-    overlay.querySelectorAll('.bd-tab').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.tab === tab);
-    });
-    // 重置全选
-    overlay.querySelector('#bd-select-all').checked = false;
-    renderTab(tab);
-}
+    document.getElementById('bcd-tab-characters').classList.toggle('bcd-tab-active', tab === 'characters');
+    document.getElementById('bcd-tab-worldbooks').classList.toggle('bcd-tab-active', tab === 'worldbooks');
 
-// ─── 渲染列表 ─────────────────────────────────────────────────────────────────
-async function renderTab(tab) {
-    currentTab = tab;
-    const container = document.getElementById('bd-list-container');
-    if (!container) return;
-    container.innerHTML = '<div class="bd-loading"><i class="fa-solid fa-spinner fa-spin"></i> 加载中...</div>';
+    const searchInput = document.getElementById('bcd-search');
+    if (searchInput) searchInput.value = '';
 
-    try {
-        if (tab === 'characters') {
-            await renderCharacters(container);
-        } else {
-            await renderWorldbooks(container);
-        }
-    } catch (err) {
-        container.innerHTML = `<div class="bd-empty">加载失败：${err.message}</div>`;
+    if (tab === 'characters') {
+        renderCharacterList();
+    } else {
+        renderWorldbookList();
     }
-
-    updateDeleteBtn();
 }
 
-// ─── 渲染角色卡列表 ───────────────────────────────────────────────────────────
-async function renderCharacters(container) {
-    // characters 是 ST 全局变量，已从 script.js 导入
-    const chars = Array.isArray(characters) ? characters : [];
+// ─── Delete flow ──────────────────────────────────────────────────────────────
 
-    if (chars.length === 0) {
-        container.innerHTML = '<div class="bd-empty"><i class="fa-solid fa-ghost"></i><br>暂无角色卡</div>';
-        return;
-    }
-
-    const ul = document.createElement('ul');
-    ul.className = 'bd-list';
-
-    chars.forEach((char, idx) => {
-        if (!char || !char.name) return;
-        const avatar = char.avatar || '';
-        const avatarUrl = avatar ? `/characters/${encodeURIComponent(avatar)}` : '/img/default-avatar.png';
-        const li = document.createElement('li');
-        li.className = 'bd-item';
-        li.dataset.index = idx;
-        li.dataset.avatar = avatar;
-        li.innerHTML = `
-<label class="bd-item-label">
-  <input type="checkbox" class="bd-item-checkbox" data-type="character" data-avatar="${avatar}" data-index="${idx}">
-  <img class="bd-avatar" src="${avatarUrl}" alt="${escHtml(char.name)}" onerror="this.src='/img/default-avatar.png'">
-  <span class="bd-item-name">${escHtml(char.name)}</span>
-</label>`;
-        li.querySelector('.bd-item-checkbox').addEventListener('change', () => {
-            syncSelectAll();
-            updateDeleteBtn();
-        });
-        ul.appendChild(li);
-    });
-
-    container.innerHTML = '';
-    container.appendChild(ul);
-}
-
-// ─── 渲染世界书列表 ───────────────────────────────────────────────────────────
-async function renderWorldbooks(container) {
-    const response = await fetch('/api/worldinfo/list', {
-        method: 'POST',
-        headers: getRequestHeaders(),
-        body: JSON.stringify({}),
-    });
-
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
-    const worlds = data?.entries || data || [];
-
-    if (!worlds.length) {
-        container.innerHTML = '<div class="bd-empty"><i class="fa-solid fa-book-open"></i><br>暂无世界书</div>';
-        return;
-    }
-
-    const ul = document.createElement('ul');
-    ul.className = 'bd-list';
-
-    worlds.forEach((name) => {
-        if (!name) return;
-        const li = document.createElement('li');
-        li.className = 'bd-item';
-        li.innerHTML = `
-<label class="bd-item-label">
-  <input type="checkbox" class="bd-item-checkbox" data-type="worldbook" data-name="${escHtml(name)}">
-  <i class="fa-solid fa-book bd-world-icon"></i>
-  <span class="bd-item-name">${escHtml(name)}</span>
-</label>`;
-        li.querySelector('.bd-item-checkbox').addEventListener('change', () => {
-            syncSelectAll();
-            updateDeleteBtn();
-        });
-        ul.appendChild(li);
-    });
-
-    container.innerHTML = '';
-    container.appendChild(ul);
-}
-
-// ─── 同步全选状态 ─────────────────────────────────────────────────────────────
-function syncSelectAll() {
-    const overlay = document.getElementById(OVERLAY_ID);
-    if (!overlay) return;
-    const all = [...overlay.querySelectorAll('.bd-item-checkbox')];
-    const checked = all.filter(cb => cb.checked);
-    const selectAll = overlay.querySelector('#bd-select-all');
-    if (selectAll) {
-        selectAll.checked = all.length > 0 && checked.length === all.length;
-        selectAll.indeterminate = checked.length > 0 && checked.length < all.length;
-    }
-    const countEl = overlay.querySelector('#bd-selected-count');
-    if (countEl) countEl.textContent = `已选 ${checked.length} 项`;
-}
-
-// ─── 更新删除按钮状态 ─────────────────────────────────────────────────────────
-function updateDeleteBtn() {
-    syncSelectAll();
-    const overlay = document.getElementById(OVERLAY_ID);
-    if (!overlay) return;
-    const checked = overlay.querySelectorAll('.bd-item-checkbox:checked');
-    const btn = overlay.querySelector('#bd-delete-btn');
-    if (btn) btn.disabled = checked.length === 0;
-}
-
-// ─── 执行删除 ─────────────────────────────────────────────────────────────────
-async function handleDelete() {
-    const overlay = document.getElementById(OVERLAY_ID);
-    if (!overlay) return;
-
-    const checked = [...overlay.querySelectorAll('.bd-item-checkbox:checked')];
-    if (!checked.length) return;
-
+async function confirmAndDelete() {
     if (currentTab === 'characters') {
-        await handleDeleteCharacters(checked, overlay);
+        await deleteSelectedCharacters();
     } else {
-        await handleDeleteWorldbooks(checked);
+        await deleteSelectedWorldbooks();
     }
 }
 
-async function handleDeleteCharacters(checked, overlay) {
-    const selectedAvatars = checked.map(cb => cb.dataset.avatar).filter(Boolean);
-    if (!selectedAvatars.length) return;
+async function deleteSelectedCharacters() {
+    if (!selectedCharacters.size) return;
 
-    // 询问是否同时删除关联世界书
-    const withWorlds = await confirmDeleteWithWorldbooks(selectedAvatars.length);
-    if (withWorlds === null) return; // 用户取消
+    const ctx   = getContext();
+    const chars = ctx.characters ?? characters ?? [];
 
-    const confirmed = await showConfirm(
-        `确认删除 ${selectedAvatars.length} 个角色卡${withWorlds ? '及其关联世界书' : ''}？\n此操作不可撤销。`
-    );
-    if (!confirmed) return;
+    // Collect associated worlds
+    const associatedWorlds = new Set();
+    for (const avatar of selectedCharacters) {
+        const char = chars.find(c => c.avatar === avatar);
+        if (char) getCharacterWorlds(char).forEach(w => associatedWorlds.add(w));
+    }
 
-    const deleteBtn = overlay.querySelector('#bd-delete-btn');
-    deleteBtn.disabled = true;
-    deleteBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 删除中...';
+    // Show confirmation dialog
+    const modal = document.getElementById('bcd-confirm-modal');
+    const msgEl = document.getElementById('bcd-confirm-msg');
+    const wbSection = document.getElementById('bcd-confirm-wb-section');
+    const wbList    = document.getElementById('bcd-confirm-wb-list');
 
-    let successCount = 0;
-    let failCount = 0;
+    msgEl.textContent = `确认删除 ${selectedCharacters.size} 个角色卡？此操作不可撤销。`;
 
-    for (const avatar of selectedAvatars) {
-        try {
-            // 如果需要删除关联世界书，先找到角色绑定的世界书
-            if (withWorlds) {
-                const char = characters.find(c => c.avatar === avatar);
-                if (char) {
-                    const boundWorld = char.data?.extensions?.world || char.character_book?.name;
-                    if (boundWorld) {
-                        await tryDeleteWorldbook(boundWorld);
-                    }
+    if (associatedWorlds.size > 0) {
+        wbSection.style.display = '';
+        wbList.innerHTML = [...associatedWorlds]
+            .map(w => `<label class="bcd-wb-check"><input type="checkbox" class="bcd-wb-del-cb" value="${w}" checked> ${w}</label>`)
+            .join('');
+    } else {
+        wbSection.style.display = 'none';
+        wbList.innerHTML = '';
+    }
+
+    modal.style.display = 'flex';
+
+    return new Promise(resolve => {
+        document.getElementById('bcd-confirm-ok').onclick = async () => {
+            modal.style.display = 'none';
+
+            // Worlds user opted to delete
+            const worldsToDelete = [...wbList.querySelectorAll('.bcd-wb-del-cb:checked')]
+                .map(cb => cb.value);
+
+            showProgress(true);
+            let done = 0;
+            const total = selectedCharacters.size + worldsToDelete.length;
+
+            for (const avatar of [...selectedCharacters]) {
+                try {
+                    await apiDeleteCharacter(avatar);
+                    selectedCharacters.delete(avatar);
+                } catch (e) {
+                    console.error(e);
+                    toastr.error(`删除失败: ${avatar}`);
                 }
+                done++;
+                setProgress(done, total);
             }
-            // 删除角色
-            const res = await fetch('/api/characters/delete', {
-                method: 'POST',
-                headers: getRequestHeaders(),
-                body: JSON.stringify({ avatar_url: avatar, delete_chats: false }),
-            });
-            if (res.ok) {
-                successCount++;
-            } else {
-                failCount++;
+
+            for (const name of worldsToDelete) {
+                try {
+                    await apiDeleteWorldbook(name);
+                } catch (e) {
+                    console.error(e);
+                    toastr.error(`删除世界书失败: ${name}`);
+                }
+                done++;
+                setProgress(done, total);
             }
-        } catch (e) {
-            failCount++;
-        }
-    }
 
-    // 刷新角色列表
-    await getContext().getCharacters();
+            showProgress(false);
+            toastr.success('批量删除完成');
 
-    deleteBtn.disabled = false;
-    deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i> 删除所选';
+            // Re-fetch characters and re-render
+            await ctx.getCharacters?.();
+            renderCharacterList();
+            resolve();
+        };
 
-    showToast(successCount, failCount, '角色卡');
-    renderTab('characters');
-}
-
-async function handleDeleteWorldbooks(checked) {
-    const names = checked.map(cb => cb.dataset.name).filter(Boolean);
-    if (!names.length) return;
-
-    const confirmed = await showConfirm(`确认删除 ${names.length} 个世界书？\n此操作不可撤销。`);
-    if (!confirmed) return;
-
-    const overlay = document.getElementById(OVERLAY_ID);
-    const deleteBtn = overlay.querySelector('#bd-delete-btn');
-    deleteBtn.disabled = true;
-    deleteBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 删除中...';
-
-    let successCount = 0;
-    let failCount = 0;
-
-    for (const name of names) {
-        const ok = await tryDeleteWorldbook(name);
-        ok ? successCount++ : failCount++;
-    }
-
-    deleteBtn.disabled = false;
-    deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i> 删除所选';
-
-    showToast(successCount, failCount, '世界书');
-    renderTab('worldbooks');
-}
-
-async function tryDeleteWorldbook(name) {
-    try {
-        const res = await fetch('/api/worldinfo/delete', {
-            method: 'POST',
-            headers: getRequestHeaders(),
-            body: JSON.stringify({ name }),
-        });
-        return res.ok;
-    } catch {
-        return false;
-    }
-}
-
-// ─── 确认弹窗（是否删除世界书）────────────────────────────────────────────────
-function confirmDeleteWithWorldbooks(charCount) {
-    return new Promise((resolve) => {
-        const modal = document.createElement('div');
-        modal.className = 'bd-confirm-modal';
-        modal.innerHTML = `
-<div class="bd-confirm-box">
-  <div class="bd-confirm-icon"><i class="fa-solid fa-circle-question"></i></div>
-  <p class="bd-confirm-title">删除 ${charCount} 个角色卡</p>
-  <p class="bd-confirm-sub">是否同时删除这些角色卡绑定的世界书？</p>
-  <div class="bd-confirm-btns">
-    <button class="bd-btn-secondary" id="bd-cf-cancel">取消</button>
-    <button class="bd-btn-outline" id="bd-cf-no">仅删除角色卡</button>
-    <button class="bd-btn-danger" id="bd-cf-yes">一并删除世界书</button>
-  </div>
-</div>`;
-        document.body.appendChild(modal);
-
-        modal.querySelector('#bd-cf-cancel').onclick = () => { modal.remove(); resolve(null); };
-        modal.querySelector('#bd-cf-no').onclick = () => { modal.remove(); resolve(false); };
-        modal.querySelector('#bd-cf-yes').onclick = () => { modal.remove(); resolve(true); };
+        document.getElementById('bcd-confirm-cancel').onclick = () => {
+            modal.style.display = 'none';
+            resolve();
+        };
     });
 }
 
-function showConfirm(msg) {
-    return new Promise((resolve) => {
-        const modal = document.createElement('div');
-        modal.className = 'bd-confirm-modal';
-        modal.innerHTML = `
-<div class="bd-confirm-box">
-  <div class="bd-confirm-icon bd-danger-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
-  <p class="bd-confirm-title" style="white-space:pre-line">${escHtml(msg)}</p>
-  <div class="bd-confirm-btns">
-    <button class="bd-btn-secondary" id="bd-cf-cancel">取消</button>
-    <button class="bd-btn-danger" id="bd-cf-confirm">确认删除</button>
-  </div>
-</div>`;
-        document.body.appendChild(modal);
-        modal.querySelector('#bd-cf-cancel').onclick = () => { modal.remove(); resolve(false); };
-        modal.querySelector('#bd-cf-confirm').onclick = () => { modal.remove(); resolve(true); };
+async function deleteSelectedWorldbooks() {
+    if (!selectedWorldbooks.size) return;
+
+    const modal = document.getElementById('bcd-confirm-modal');
+    const msgEl = document.getElementById('bcd-confirm-msg');
+    const wbSection = document.getElementById('bcd-confirm-wb-section');
+
+    msgEl.textContent = `确认删除 ${selectedWorldbooks.size} 个世界书？此操作不可撤销。`;
+    wbSection.style.display = 'none';
+    modal.style.display = 'flex';
+
+    return new Promise(resolve => {
+        document.getElementById('bcd-confirm-ok').onclick = async () => {
+            modal.style.display = 'none';
+            showProgress(true);
+            let done = 0;
+            const total = selectedWorldbooks.size;
+
+            for (const name of [...selectedWorldbooks]) {
+                try {
+                    await apiDeleteWorldbook(name);
+                    selectedWorldbooks.delete(name);
+                } catch (e) {
+                    console.error(e);
+                    toastr.error(`删除世界书失败: ${name}`);
+                }
+                done++;
+                setProgress(done, total);
+            }
+
+            showProgress(false);
+            toastr.success('批量删除完成');
+            renderWorldbookList();
+            resolve();
+        };
+
+        document.getElementById('bcd-confirm-cancel').onclick = () => {
+            modal.style.display = 'none';
+            resolve();
+        };
     });
 }
 
-// ─── Toast 通知 ───────────────────────────────────────────────────────────────
-function showToast(success, fail, type) {
-    const msg = fail > 0
-        ? `成功删除 ${success} 个${type}，${fail} 个失败`
-        : `成功删除 ${success} 个${type}`;
-    if (typeof toastr !== 'undefined') {
-        fail > 0 ? toastr.warning(msg) : toastr.success(msg);
+// ─── Progress bar ─────────────────────────────────────────────────────────────
+
+function showProgress(show) {
+    const el = document.getElementById('bcd-progress-wrap');
+    if (el) el.style.display = show ? '' : 'none';
+    if (!show) setProgress(0, 1);
+}
+
+function setProgress(done, total) {
+    const bar  = document.getElementById('bcd-progress-bar');
+    const text = document.getElementById('bcd-progress-text');
+    if (!bar || !text) return;
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    bar.style.width = pct + '%';
+    text.textContent = `${done} / ${total}`;
+}
+
+// ─── Search filter ─────────────────────────────────────────────────────────────
+
+function applySearch(query) {
+    const q = query.trim().toLowerCase();
+    document.querySelectorAll('#bcd-item-list .bcd-item-row').forEach(row => {
+        const name = row.querySelector('.bcd-name')?.textContent.toLowerCase() ?? '';
+        row.style.display = (!q || name.includes(q)) ? '' : 'none';
+    });
+}
+
+// ─── Build HTML panel ─────────────────────────────────────────────────────────
+
+function buildPanelHTML() {
+    return `
+<div id="bcd-overlay" class="bcd-overlay">
+    <div id="bcd-panel" class="bcd-panel">
+
+        <!-- Header -->
+        <div class="bcd-header">
+            <span class="bcd-title"><i class="fa-solid fa-trash-can"></i> 批量删除</span>
+            <button id="bcd-close-btn" class="bcd-close-btn" title="关闭"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <!-- Tabs -->
+        <div class="bcd-tabs">
+            <button id="bcd-tab-characters" class="bcd-tab bcd-tab-active">
+                <i class="fa-solid fa-user"></i> 角色卡
+            </button>
+            <button id="bcd-tab-worldbooks" class="bcd-tab">
+                <i class="fa-solid fa-book"></i> 世界书
+            </button>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="bcd-toolbar">
+            <label class="bcd-select-all-label" title="全选/取消全选">
+                <input type="checkbox" id="bcd-select-all">
+                <span>全选</span>
+            </label>
+            <input type="text" id="bcd-search" class="bcd-search" placeholder="搜索...">
+        </div>
+
+        <!-- Progress bar (hidden by default) -->
+        <div id="bcd-progress-wrap" class="bcd-progress-wrap" style="display:none">
+            <div class="bcd-progress-track">
+                <div id="bcd-progress-bar" class="bcd-progress-bar"></div>
+            </div>
+            <span id="bcd-progress-text" class="bcd-progress-text">0 / 0</span>
+        </div>
+
+        <!-- List -->
+        <div id="bcd-item-list" class="bcd-item-list"></div>
+
+        <!-- Footer -->
+        <div class="bcd-footer">
+            <button id="bcd-delete-btn" class="bcd-btn bcd-btn-delete" disabled>
+                <i class="fa-solid fa-trash"></i> 删除所选<span id="bcd-delete-count"></span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation modal -->
+<div id="bcd-confirm-modal" class="bcd-confirm-modal" style="display:none">
+    <div class="bcd-confirm-box">
+        <div class="bcd-confirm-icon"><i class="fa-solid fa-circle-exclamation"></i></div>
+        <p id="bcd-confirm-msg" class="bcd-confirm-msg"></p>
+        <div id="bcd-confirm-wb-section" class="bcd-confirm-wb-section" style="display:none">
+            <p class="bcd-confirm-wb-title">同时删除关联的世界书？</p>
+            <div id="bcd-confirm-wb-list" class="bcd-confirm-wb-list"></div>
+        </div>
+        <div class="bcd-confirm-actions">
+            <button id="bcd-confirm-cancel" class="bcd-btn">取消</button>
+            <button id="bcd-confirm-ok" class="bcd-btn bcd-btn-danger">确认删除</button>
+        </div>
+    </div>
+</div>`;
+}
+
+// ─── Open / close panel ───────────────────────────────────────────────────────
+
+function openPanel() {
+    // Reset state
+    selectedCharacters.clear();
+    selectedWorldbooks.clear();
+    currentTab = 'characters';
+
+    let overlay = document.getElementById('bcd-overlay');
+    if (!overlay) {
+        document.body.insertAdjacentHTML('beforeend', buildPanelHTML());
+        overlay = document.getElementById('bcd-overlay');
+        bindPanelEvents();
     } else {
-        console.log(`[bulk-delete] ${msg}`);
+        overlay.style.display = 'flex';
+        document.getElementById('bcd-confirm-modal').style.display = 'none';
+    }
+
+    switchTab('characters');
+    overlay.style.display = 'flex';
+
+    // Close on overlay click
+    overlay.addEventListener('click', e => {
+        if (e.target === overlay) closePanel();
+    });
+}
+
+function closePanel() {
+    const overlay = document.getElementById('bcd-overlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+function bindPanelEvents() {
+    document.getElementById('bcd-close-btn').addEventListener('click', closePanel);
+
+    document.getElementById('bcd-tab-characters').addEventListener('click', () => {
+        selectedCharacters.clear();
+        selectedWorldbooks.clear();
+        switchTab('characters');
+    });
+
+    document.getElementById('bcd-tab-worldbooks').addEventListener('click', () => {
+        selectedCharacters.clear();
+        selectedWorldbooks.clear();
+        switchTab('worldbooks');
+    });
+
+    document.getElementById('bcd-select-all').addEventListener('change', function () {
+        if (currentTab === 'characters') {
+            const ctx   = getContext();
+            const chars = ctx.characters ?? characters ?? [];
+            selectedCharacters.clear();
+            if (this.checked) chars.forEach(c => selectedCharacters.add(c.avatar));
+            renderCharacterList();
+        } else {
+            const names = world_names ?? [];
+            selectedWorldbooks.clear();
+            if (this.checked) names.forEach(n => selectedWorldbooks.add(n));
+            renderWorldbookList();
+        }
+    });
+
+    document.getElementById('bcd-search').addEventListener('input', function () {
+        applySearch(this.value);
+    });
+
+    document.getElementById('bcd-delete-btn').addEventListener('click', confirmAndDelete);
+
+    // Keyboard close
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            const modal = document.getElementById('bcd-confirm-modal');
+            if (modal?.style.display !== 'none') {
+                modal.style.display = 'none';
+            } else {
+                closePanel();
+            }
+        }
+    });
+}
+
+// ─── Inject menu entry ────────────────────────────────────────────────────────
+
+function injectMenuButton() {
+    // extensionsMenu is the <ul> rendered inside #rm_extensions_block by extensions.js
+    // We wait for it to exist (it may appear after script load).
+    const tryInject = () => {
+        // SillyTavern dynamically creates #extensionsMenu inside rm_extensions_block
+        let menu = document.getElementById('extensionsMenu');
+
+        // Fallback: append a standalone entry to the extensions block header area
+        if (!menu) {
+            menu = document.querySelector('#rm_extensions_block .extensions_block');
+        }
+
+        if (!menu) return false;
+
+        // Avoid duplicate
+        if (document.getElementById('bcd-menu-entry')) return true;
+
+        const li = document.createElement('li');
+        li.id = 'bcd-menu-entry';
+        li.innerHTML = `<a id="bcd-menu-link" href="#" title="批量删除角色卡和世界书">
+            <i class="fa-solid fa-trash"></i>
+            <span>批量删除角色卡</span>
+        </a>`;
+        li.querySelector('#bcd-menu-link').addEventListener('click', e => {
+            e.preventDefault();
+            openPanel();
+        });
+
+        // If it's a <ul> (extensionsMenu), append as <li>
+        if (menu.tagName === 'UL') {
+            menu.appendChild(li);
+        } else {
+            // Fallback: add a styled button in extensions block header
+            const btn = document.createElement('div');
+            btn.id = 'bcd-menu-entry';
+            btn.className = 'menu_button menu_button_icon';
+            btn.title = '批量删除角色卡';
+            btn.innerHTML = '<i class="fa-solid fa-trash"></i><span>批量删除角色卡</span>';
+            btn.addEventListener('click', openPanel);
+            menu.appendChild(btn);
+        }
+        return true;
+    };
+
+    if (!tryInject()) {
+        // Poll until the menu exists
+        const timer = setInterval(() => {
+            if (tryInject()) clearInterval(timer);
+        }, 500);
     }
 }
 
-// ─── 工具函数 ─────────────────────────────────────────────────────────────────
-function escHtml(str) {
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
+// ─── Entry point ──────────────────────────────────────────────────────────────
+
+jQuery(async () => {
+    injectMenuButton();
+    console.log('[Bulk Character Deleter] Extension loaded.');
+});

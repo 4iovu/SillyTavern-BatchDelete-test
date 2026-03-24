@@ -1,472 +1,588 @@
-/* ============================================================
-   SillyTavern Bulk Delete Extension — style.css
-   兼容 ST 暗色主题 & 手机端响应式
-   ============================================================ */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Bulk Character Deleter — style.css
+   Mobile-first · 全部间距用百分比，无固定像素边距
+   Compatible with SillyTavern CSS variable system
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── 扩展菜单入口按钮 ──────────────────────────────────────── */
-#bulk-delete-menu-btn {
+/* ── Menu entry ──────────────────────────────────────────────────────────── */
+#bcd-menu-entry {
+    cursor: pointer;
+}
+
+#bcd-menu-entry a {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 12px;
-    cursor: pointer;
-    color: var(--grey50, #888);
-    font-size: 0.95em;
-    transition: color 0.15s, background 0.15s;
-    user-select: none;
-    list-style: none;
-    border-top: 1px solid var(--grey15, rgba(255,255,255,0.07));
-    margin-top: 2px;
+    color: var(--SmartThemeBodyColor, #ccc);
+    text-decoration: none;
+    padding: 8px 10px;
+    border-radius: 4px;
+    transition: background 0.15s, color 0.15s;
+    min-height: 44px;
 }
 
-#bulk-delete-menu-btn:hover {
-    color: var(--grey75, #aaa);
-    background: var(--grey10, rgba(255,255,255,0.05));
+#bcd-menu-entry a:hover,
+#bcd-menu-entry a:active {
+    background: var(--SmartThemeBlurTintColor, rgba(255,255,255,0.07));
+    color: var(--SmartThemeEmColor, #fff);
 }
 
-#bulk-delete-menu-btn i {
-    width: 16px;
+#bcd-menu-entry a i {
+    width: 18px;
     text-align: center;
-    opacity: 0.75;
+    color: var(--SmartThemeQuoteColor, #e87);
+    font-size: 1rem;
 }
 
-/* ── 遮罩层 ────────────────────────────────────────────────── */
-#bulk-delete-overlay {
+div#bcd-menu-entry {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 8px 10px;
+    min-height: 44px;
+    color: var(--SmartThemeBodyColor, #ccc);
+    border-radius: 4px;
+    transition: background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+div#bcd-menu-entry i {
+    color: var(--SmartThemeQuoteColor, #e87);
+}
+
+/* ── Overlay ─────────────────────────────────────────────────────────────── */
+.bcd-overlay {
     position: fixed;
     inset: 0;
     z-index: 9999;
+    background: rgba(0, 0, 0, 0.65);
     display: flex;
     align-items: center;
     justify-content: center;
-    /* 指针事件只在背景层阻断 */
-    pointer-events: none;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    animation: bcd-fade-in 0.18s ease;
+    /*
+     * 四周留白全部用百分比：
+     *   手机竖屏  → 左右各 4vw，上下各 4vh
+     *   同时叠加系统安全区（刘海 / Home Bar），取两者较大值
+     */
+    padding-top:    max(4vh, env(safe-area-inset-top,    0px));
+    padding-right:  max(4vw, env(safe-area-inset-right,  0px));
+    padding-bottom: max(4vh, env(safe-area-inset-bottom, 0px));
+    padding-left:   max(4vw, env(safe-area-inset-left,   0px));
+    box-sizing: border-box;
 }
 
-#bulk-delete-overlay.bd-hidden {
-    display: none;
+@keyframes bcd-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
 }
 
-#bd-overlay-bg {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(2px);
-    pointer-events: all;
-    animation: bd-fade-in 0.18s ease;
-}
-
-/* ── 面板容器 ───────────────────────────────────────────────── */
-#bulk-delete-panel {
-    position: relative;
-    z-index: 10000;
-    pointer-events: all;
-
-    /* 手机端：四边留 5% 间距，用百分比而非固定值 */
-    width: 90%;
-    max-width: 540px;
-    max-height: 80vh;
-
-    /* 距离屏幕四边的间距用 margin（百分比） */
-    margin: 5vh auto;
-
-    background: var(--grey10, #1e1e20);
-    border: 1px solid var(--grey25, rgba(255,255,255,0.12));
-    border-radius: 10px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+/* ── Panel — centered floating card (mobile & desktop) ──────────────────── */
+.bcd-panel {
+    background: var(--SmartThemeBlurTintColor, #232327);
+    border: 1px solid var(--SmartThemeBorderColor, #444);
+    border-radius: 16px;
+    box-shadow: 0 8px 48px rgba(0,0,0,0.65);
+    /*
+     * 撑满 overlay 已留好百分比间距的内容区。
+     * width/height = 100% 意味着面板本身占满 overlay 内容区，
+     * 真正的"四边距离屏幕"由 overlay 的 padding 控制（4vw / 4vh）。
+     * max-width / max-height 限制桌面端不要太宽/太高。
+     */
+    width: 100%;
+    max-width: 92vw;          /* 桌面上不超过视口宽度的 92%  */
+    height: 100%;
+    max-height: 92vh;         /* 同理限制高度                */
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    animation: bd-slide-up 0.22s cubic-bezier(0.22, 1, 0.36, 1);
-    color: var(--grey75, #bbb);
-    font-family: inherit;
+    color: var(--SmartThemeBodyColor, #ccc);
+    font-family: var(--mainFontFamily, inherit);
+    animation: bcd-zoom-in 0.2s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-/* ── 面板头部（Tabs + 关闭） ────────────────────────────────── */
-.bd-panel-header {
+/* 居中布局不需要拖动把手 */
+.bcd-panel::before { display: none; }
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.bcd-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 14px 0;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--SmartThemeBorderColor, #3a3a3e);
     flex-shrink: 0;
-    border-bottom: 1px solid var(--grey20, rgba(255,255,255,0.08));
 }
 
-.bd-tabs {
-    display: flex;
-    gap: 4px;
-}
-
-.bd-tab {
+.bcd-title {
+    font-size: 1.05rem;
+    font-weight: 700;
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 7px 14px;
+    gap: 8px;
+    color: var(--SmartThemeEmColor, #eee);
+}
+
+.bcd-title i {
+    color: var(--SmartThemeQuoteColor, #e87);
+}
+
+.bcd-close-btn {
+    background: none;
     border: none;
-    border-radius: 6px 6px 0 0;
-    background: transparent;
-    color: var(--grey50, #888);
-    font-size: 0.9em;
+    color: var(--SmartThemeBodyColor, #aaa);
     cursor: pointer;
-    transition: color 0.15s, background 0.15s;
-    font-family: inherit;
-    position: relative;
-    bottom: -1px;
-    border-bottom: 2px solid transparent;
-}
-
-.bd-tab:hover {
-    color: var(--grey75, #bbb);
-}
-
-.bd-tab.active {
-    color: var(--grey90, #ddd);
-    border-bottom: 2px solid var(--grey50, #888);
-}
-
-.bd-close-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 1.3rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
-    border: none;
     border-radius: 50%;
-    background: transparent;
-    color: var(--grey50, #888);
-    cursor: pointer;
-    font-size: 1em;
-    transition: color 0.15s, background 0.15s;
+    transition: background 0.15s, color 0.15s;
+    -webkit-tap-highlight-color: transparent;
     flex-shrink: 0;
 }
 
-.bd-close-btn:hover {
-    color: var(--grey90, #ddd);
-    background: var(--grey15, rgba(255,255,255,0.07));
+.bcd-close-btn:active {
+    background: rgba(255,80,80,0.18);
+    color: #ff6b6b;
 }
 
-/* ── 工具栏（全选 + 计数） ──────────────────────────────────── */
-.bd-toolbar {
+/* ── Tabs ────────────────────────────────────────────────────────────────── */
+.bcd-tabs {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 14px;
     flex-shrink: 0;
-    background: var(--grey08, rgba(255,255,255,0.03));
-    border-bottom: 1px solid var(--grey15, rgba(255,255,255,0.06));
+    border-bottom: 1px solid var(--SmartThemeBorderColor, #3a3a3e);
 }
 
-.bd-select-all-label {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    cursor: pointer;
-    color: var(--grey60, #999);
-    font-size: 0.88em;
-    user-select: none;
-}
-
-.bd-select-all-label input[type="checkbox"] {
-    accent-color: var(--grey60, #999);
-    width: 15px;
-    height: 15px;
-    cursor: pointer;
-}
-
-.bd-count {
-    font-size: 0.82em;
-    color: var(--grey50, #777);
-    letter-spacing: 0.02em;
-}
-
-/* ── 滚动列表区域 ────────────────────────────────────────────── */
-.bd-list-container {
+.bcd-tab {
     flex: 1;
-    overflow-y: auto;
-    padding: 6px 0;
-    scrollbar-width: thin;
-    scrollbar-color: var(--grey25, rgba(255,255,255,0.12)) transparent;
-}
-
-.bd-list-container::-webkit-scrollbar {
-    width: 5px;
-}
-.bd-list-container::-webkit-scrollbar-track {
-    background: transparent;
-}
-.bd-list-container::-webkit-scrollbar-thumb {
-    background: var(--grey25, rgba(255,255,255,0.12));
-    border-radius: 3px;
-}
-
-.bd-list {
-    list-style: none;
-    margin: 0;
-    padding: 0 6px;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--SmartThemeBodyColor, #aaa);
+    padding: 12px 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 50px;
+    transition: color 0.15s, border-color 0.15s;
+    -webkit-tap-highlight-color: transparent;
 }
 
-/* ── 单个列表项 ─────────────────────────────────────────────── */
-.bd-item {
-    border-radius: 6px;
-    transition: background 0.12s;
+.bcd-tab:active {
+    background: rgba(255,255,255,0.04);
 }
 
-.bd-item:hover {
-    background: var(--grey12, rgba(255,255,255,0.05));
+.bcd-tab.bcd-tab-active {
+    color: var(--SmartThemeEmColor, #fff);
+    border-bottom-color: var(--SmartThemeQuoteColor, #e87);
 }
 
-.bd-item-label {
+/* ── Toolbar ─────────────────────────────────────────────────────────────── */
+.bcd-toolbar {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 7px 10px;
+    padding: 10px 16px;
+    flex-shrink: 0;
+}
+
+.bcd-select-all-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.93rem;
     cursor: pointer;
     user-select: none;
+    color: var(--SmartThemeBodyColor, #bbb);
+    white-space: nowrap;
+    min-height: 44px;
+    -webkit-tap-highlight-color: transparent;
 }
 
-.bd-item-checkbox {
-    accent-color: var(--grey60, #999);
-    width: 15px;
-    height: 15px;
+.bcd-select-all-label input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
     cursor: pointer;
+    accent-color: var(--SmartThemeQuoteColor, #e87);
     flex-shrink: 0;
 }
 
-/* 角色卡头像 */
-.bd-avatar {
-    width: 36px;
-    height: 36px;
+/* font-size:16px prevents iOS auto-zoom on focus */
+.bcd-search {
+    flex: 1;
+    background: rgba(0,0,0,0.25);
+    border: 1px solid var(--SmartThemeBorderColor, #555);
+    border-radius: 20px;
+    color: var(--SmartThemeBodyColor, #ccc);
+    font-size: 16px;
+    padding: 8px 14px;
+    outline: none;
+    min-height: 42px;
+    transition: border-color 0.15s;
+    box-sizing: border-box;
+}
+
+.bcd-search:focus {
+    border-color: var(--SmartThemeQuoteColor, #e87);
+}
+
+.bcd-search::placeholder {
+    color: var(--SmartThemeBodyColor, #777);
+    opacity: 0.55;
+}
+
+/* ── Progress bar ────────────────────────────────────────────────────────── */
+.bcd-progress-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 16px;
+    flex-shrink: 0;
+    background: rgba(0,0,0,0.15);
+}
+
+.bcd-progress-track {
+    flex: 1;
+    height: 6px;
+    background: var(--SmartThemeBorderColor, #444);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.bcd-progress-bar {
+    height: 100%;
+    background: var(--SmartThemeQuoteColor, #e87);
+    border-radius: 3px;
+    transition: width 0.2s ease;
+    width: 0%;
+}
+
+.bcd-progress-text {
+    font-size: 0.82rem;
+    color: var(--SmartThemeBodyColor, #aaa);
+    white-space: nowrap;
+    min-width: 48px;
+    text-align: right;
+}
+
+/* ── Item list ───────────────────────────────────────────────────────────── */
+.bcd-item-list {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 6px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+}
+
+.bcd-item-list::-webkit-scrollbar { width: 4px; }
+.bcd-item-list::-webkit-scrollbar-thumb {
+    background: var(--SmartThemeBorderColor, #555);
+    border-radius: 2px;
+}
+
+.bcd-item-row {
+    border-radius: 10px;
+    overflow: hidden;
+    transition: background 0.1s;
+}
+
+.bcd-item-row:active {
+    background: rgba(255,255,255,0.05);
+}
+
+.bcd-item-row.bcd-selected {
+    background: rgba(232, 136, 100, 0.13);
+    outline: 1px solid rgba(232, 136, 100, 0.32);
+}
+
+.bcd-item-row.bcd-active-char {
+    outline: 1px solid rgba(100, 210, 110, 0.45);
+}
+
+.bcd-row-inner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    cursor: pointer;
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 62px;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.bcd-checkbox {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    cursor: pointer;
+    accent-color: var(--SmartThemeQuoteColor, #e87);
+}
+
+.bcd-avatar {
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
     object-fit: cover;
-    border: 1px solid var(--grey20, rgba(255,255,255,0.08));
     flex-shrink: 0;
-    background: var(--grey15, #2a2a2c);
+    border: 2px solid var(--SmartThemeBorderColor, #555);
+    background: #222;
 }
 
-/* 世界书图标 */
-.bd-world-icon {
-    width: 36px;
-    height: 36px;
+.bcd-wb-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.1em;
-    color: var(--grey50, #777);
     flex-shrink: 0;
+    background: var(--SmartThemeBorderColor, #333);
+    color: var(--SmartThemeQuoteColor, #e87);
+    font-size: 1.3rem;
 }
 
-.bd-item-name {
+.bcd-info {
     flex: 1;
-    font-size: 0.9em;
-    color: var(--grey75, #bbb);
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.bcd-name {
+    font-size: 0.96rem;
+    font-weight: 600;
+    color: var(--SmartThemeEmColor, #e0e0e0);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-/* 选中状态高亮 */
-.bd-item-label:has(.bd-item-checkbox:checked) {
-    color: var(--grey90, #ddd);
-}
-.bd-item:has(.bd-item-checkbox:checked) {
-    background: var(--grey15, rgba(255,255,255,0.06));
-}
-.bd-item:has(.bd-item-checkbox:checked) .bd-item-name {
-    color: var(--grey90, #e0e0e0);
-}
-
-/* 空状态 / 加载状态 */
-.bd-empty,
-.bd-loading {
-    text-align: center;
-    padding: 40px 20px;
-    color: var(--grey40, #666);
-    font-size: 0.9em;
-    line-height: 2;
+.bcd-world-tag {
+    font-size: 0.77rem;
+    color: var(--SmartThemeBodyColor, #aaa);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-/* ── 底部删除按钮 ────────────────────────────────────────────── */
-.bd-panel-footer {
-    padding: 10px 14px;
-    border-top: 1px solid var(--grey15, rgba(255,255,255,0.07));
+.bcd-world-tag i {
+    color: var(--SmartThemeQuoteColor, #e87);
+    font-size: 0.72rem;
     flex-shrink: 0;
 }
 
-.bd-delete-btn {
-    width: 100%;
-    padding: 9px;
-    border: 1px solid var(--grey30, rgba(255,255,255,0.15));
-    border-radius: 6px;
-    background: transparent;
-    color: var(--grey60, #999);
-    font-size: 0.9em;
-    font-family: inherit;
+.bcd-empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--SmartThemeBodyColor, #777);
+    font-size: 0.95rem;
+    opacity: 0.55;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+.bcd-footer {
+    display: flex;
+    justify-content: stretch;
+    padding: 10px 16px 12px;
+    border-top: 1px solid var(--SmartThemeBorderColor, #3a3a3e);
+    flex-shrink: 0;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.bcd-btn {
+    background: var(--SmartThemeBlurTintColor, #3a3a40);
+    border: 1px solid var(--SmartThemeBorderColor, #555);
+    color: var(--SmartThemeBodyColor, #ccc);
+    padding: 0 20px;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 7px;
-    transition: all 0.15s;
+    gap: 8px;
+    height: 52px;
+    transition: opacity 0.15s, background 0.15s;
+    -webkit-tap-highlight-color: transparent;
 }
 
-.bd-delete-btn:not(:disabled):hover {
-    background: rgba(200, 80, 80, 0.15);
-    border-color: rgba(200, 80, 80, 0.5);
-    color: #e08080;
-}
+.bcd-btn:active:not(:disabled) { opacity: 0.7; }
 
-.bd-delete-btn:disabled {
+.bcd-btn:disabled {
     opacity: 0.35;
     cursor: not-allowed;
 }
 
-/* ── 确认弹窗 ────────────────────────────────────────────────── */
-.bd-confirm-modal {
+.bcd-btn-danger {
+    background: rgba(200, 50, 50, 0.22);
+    border-color: rgba(200, 50, 50, 0.5);
+    color: #ff8888;
+}
+
+.bcd-btn-delete {
+    flex: 1;
+}
+
+/* ── Confirm modal ───────────────────────────────────────────────────────── */
+.bcd-confirm-modal {
     position: fixed;
     inset: 0;
-    z-index: 10001;
+    z-index: 10000;
+    background: rgba(0,0,0,0.65);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.bcd-confirm-box {
+    background: var(--SmartThemeBlurTintColor, #2c2c32);
+    border: 1px solid var(--SmartThemeBorderColor, #555);
+    border-radius: 18px 18px 0 0;
+    padding: 24px 20px;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    width: 100%;
+    max-width: 100vw;
+    box-shadow: 0 -6px 40px rgba(0,0,0,0.6);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    animation: bcd-slide-up 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.bcd-confirm-box::before {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 4px;
+    background: var(--SmartThemeBorderColor, #555);
+    border-radius: 2px;
+    margin: -10px auto 4px;
+}
+
+.bcd-confirm-icon {
+    text-align: center;
+    font-size: 2.4rem;
+    color: #f0a060;
+}
+
+.bcd-confirm-msg {
+    text-align: center;
+    font-size: 0.97rem;
+    color: var(--SmartThemeBodyColor, #ccc);
+    line-height: 1.55;
+    margin: 0;
+}
+
+.bcd-confirm-wb-section {
+    background: rgba(0,0,0,0.2);
+    border: 1px solid var(--SmartThemeBorderColor, #444);
+    border-radius: 10px;
+    padding: 12px 14px;
+}
+
+.bcd-confirm-wb-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--SmartThemeEmColor, #ddd);
+    margin: 0 0 10px;
+}
+
+.bcd-confirm-wb-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 160px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.bcd-wb-check {
     display: flex;
     align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(3px);
-    animation: bd-fade-in 0.15s ease;
-    padding: 5%;
-}
-
-.bd-confirm-box {
-    background: var(--grey10, #1e1e20);
-    border: 1px solid var(--grey25, rgba(255,255,255,0.12));
-    border-radius: 10px;
-    padding: 28px 24px 22px;
-    max-width: 360px;
-    width: 100%;
-    text-align: center;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.6);
-    animation: bd-slide-up 0.2s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.bd-confirm-icon {
-    font-size: 2em;
-    color: var(--grey50, #888);
-    margin-bottom: 12px;
-}
-
-.bd-danger-icon {
-    color: #d97777;
-}
-
-.bd-confirm-title {
-    color: var(--grey85, #ccc);
-    font-size: 0.95em;
-    margin: 0 0 6px;
-    line-height: 1.5;
-}
-
-.bd-confirm-sub {
-    color: var(--grey55, #888);
-    font-size: 0.85em;
-    margin: 0 0 18px;
-}
-
-.bd-confirm-btns {
-    display: flex;
-    gap: 8px;
-    justify-content: center;
-    flex-wrap: wrap;
-}
-
-/* 通用按钮基础 */
-.bd-confirm-btns button {
-    padding: 7px 16px;
-    border-radius: 6px;
-    font-size: 0.88em;
-    font-family: inherit;
+    gap: 10px;
+    font-size: 0.9rem;
+    color: var(--SmartThemeBodyColor, #bbb);
     cursor: pointer;
-    transition: all 0.15s;
-    border: 1px solid transparent;
+    min-height: 38px;
+    -webkit-tap-highlight-color: transparent;
 }
 
-/* 取消按钮 */
-.bd-btn-secondary {
-    background: transparent;
-    border-color: var(--grey25, rgba(255,255,255,0.12)) !important;
-    color: var(--grey55, #888);
-}
-.bd-btn-secondary:hover {
-    background: var(--grey15, rgba(255,255,255,0.07));
-    color: var(--grey75, #bbb);
+.bcd-wb-check input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--SmartThemeQuoteColor, #e87);
+    flex-shrink: 0;
 }
 
-/* 仅删除角色卡（轮廓风格） */
-.bd-btn-outline {
-    background: transparent;
-    border-color: var(--grey35, rgba(255,255,255,0.2)) !important;
-    color: var(--grey70, #aaa);
-}
-.bd-btn-outline:hover {
-    background: rgba(255,255,255,0.06);
-    color: var(--grey85, #ccc);
+.bcd-confirm-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 4px;
 }
 
-/* 危险确认按钮 */
-.bd-btn-danger {
-    background: rgba(180, 60, 60, 0.15);
-    border-color: rgba(180, 60, 60, 0.4) !important;
-    color: #d08080;
-}
-.bd-btn-danger:hover {
-    background: rgba(200, 70, 70, 0.25);
-    border-color: rgba(200, 70, 70, 0.6) !important;
-    color: #e09090;
+.bcd-confirm-actions .bcd-btn {
+    flex: 1;
+    height: 52px;
 }
 
-/* ── 动画 ────────────────────────────────────────────────────── */
-@keyframes bd-fade-in {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-}
-
-@keyframes bd-slide-up {
-    from {
-        opacity: 0;
-        transform: translateY(16px) scale(0.97);
+/* ═══════════════════════════════════════════════════════════════════
+   桌面端优化  (screen width >= 600px)
+   ─ overlay 的四边留白增大到 5vw / 5vh
+   ─ 面板宽度限制收窄，不要占满整个屏幕
+   ═══════════════════════════════════════════════════════════════════ */
+@media (min-width: 600px) {
+    .bcd-overlay {
+        padding-top:    max(5vh, env(safe-area-inset-top,    0px));
+        padding-right:  max(5vw, env(safe-area-inset-right,  0px));
+        padding-bottom: max(5vh, env(safe-area-inset-bottom, 0px));
+        padding-left:   max(5vw, env(safe-area-inset-left,   0px));
     }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
+
+    .bcd-panel {
+        /* 桌面宽屏：最宽 560px 或 60vw，取较小值；高度最多 80vh */
+        max-width:  min(560px, 90vw);
+        max-height: 80vh;
+    }
+
+    .bcd-close-btn:hover {
+        background: rgba(255,80,80,0.15);
+        color: #ff6b6b;
+    }
+
+    .bcd-tab:hover {
+        background: rgba(255,255,255,0.04);
+        color: var(--SmartThemeEmColor, #ddd);
     }
 }
 
-/* ── 手机端适配 ─────────────────────────────────────────────── */
-@media (max-width: 480px) {
-    #bulk-delete-panel {
-        /* 手机端：四边距离屏幕边缘 4% */
-        width: 92%;
-        max-height: 85vh;
-        border-radius: 12px;
-        margin: 4vh auto;
-    }
-
-    .bd-tab {
-        padding: 6px 10px;
-        font-size: 0.85em;
-    }
-
-    .bd-confirm-btns {
-        flex-direction: column;
-    }
-
-    .bd-confirm-btns button {
-        width: 100%;
-    }
+@keyframes bcd-zoom-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to   { opacity: 1; transform: scale(1); }
 }
 
-@media (max-width: 360px) {
-    #bulk-delete-panel {
-        width: 94%;
-        margin: 3vh auto;
-    }
+@keyframes bcd-slide-up {
+    from { opacity: 0; transform: translateY(30%); }
+    to   { opacity: 1; transform: translateY(0); }
 }
