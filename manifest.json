@@ -1,10 +1,10 @@
 {
     "display_name": "批量管理-测试-私",
-    "version": "6.2.2",
+    "version": "7.2.2",
     "js": "index.js",
     "css": "style.css",
     "author": "Twelve",
-    "description": "批量勾选并删除角色卡和世界书，支持全选、搜索筛选，可选同步删除关联世界书。",
+    "description": "批量管理并删除角色卡、世界书、预设、正则脚本。支持标签筛选、收藏分组、内容预览。",
     "homePage": "https://github.com/4iovu/SillyTavern-BatchDelete-test",
     "auto_update": true
 }
