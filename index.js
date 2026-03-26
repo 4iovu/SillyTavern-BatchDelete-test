@@ -1018,11 +1018,10 @@ function injectMenuButton() {
         btn.title     = '批量管理';
         btn.innerHTML = '<i class="fa-solid fa-layer-group"></i><span>批量管理</span>';
         // Stop propagation so rlh-outside-click doesn't intercept this click
-        btn.addEventListener('mousedown', stopBubble);
-        btn.addEventListener('click',     e => { e.stopPropagation(); openPanel(); });
-        row.appendChild(btn);
-        return true;
-    };
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            openPanel();
+        });
 
     if (!tryInject()) {
         const t = setInterval(() => { if (tryInject()) clearInterval(t); }, 300);
